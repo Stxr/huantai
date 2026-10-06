@@ -1,0 +1,9 @@
+#!/bin/bash
+set -euo pipefail
+task_root="$(cd "$(dirname "$0")/.." && pwd)"
+if [ ! -x "$task_root/.build/debug/ht" ]; then
+  printf '请先运行 %s/scripts/build.sh\n' "$task_root" >&2
+  exit 1
+fi
+export HUANTAI_HOME="${HUANTAI_HOME:-$task_root/.local/state}"
+exec "$task_root/.build/debug/ht" "$@"

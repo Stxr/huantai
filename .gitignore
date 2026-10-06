@@ -1,0 +1,22 @@
+.build/
+.swiftpm/
+build/
+dist/
+.local/
+.DS_Store
+*.log
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.mobileprovision
+*.db
+*.sqlite
+*.sqlite-*
+*.jsonl
+
+# Historical local audits and design records stay on this machine.
+/design/
+/docs/*
+!/docs/public/
