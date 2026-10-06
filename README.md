@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="docs/public/images/wordmark.svg" alt="换台 Huantai — 少找窗口，多写代码" width="100%">
+<img src="docs/public/images/wordmark.svg" alt="换台 Huantai — 像换台一样切换窗口。" width="100%">
 
-**把散落的 AI 会话，收进 Mac 菜单栏。**
+**像换台一样切换窗口。**
 
 Codex / Botmux 会话管理 · 彩色额度圆环 · 全局快捷键 · 原生 SwiftUI
 
