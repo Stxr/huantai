@@ -109,6 +109,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
                 if model.shortcuts.keys.contains(where: { $0.navigationAction == nil }) {
                     try manager.replace(with: model.shortcuts.filter { $0.key.navigationAction != nil })
                 }
+                // An occupied new undo combination must not disable existing completion/wake bindings.
+                if model.shortcuts[.undoCompletion] != nil {
+                    try manager.replace(with: model.shortcuts.filter { $0.key != .undoCompletion })
+                }
                 try manager.replace(with: model.shortcuts)
                 model.reportShortcutStatus(
                     model.shortcuts.isEmpty ? "全局快捷键已关闭" : "已启用 \(model.shortcuts.count) 项全局快捷键")
@@ -200,6 +204,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
 @main
 struct HuantaiApplication {
     static func main() {
+        if CommandLine.arguments.contains("--huantai-codex-hook") {
+            let data = (try? FileHandle.standardInput.read(upToCount: 4 * 1024 * 1024)) ?? Data()
+            CodexHookInstallation.receive(arguments: CommandLine.arguments, input: data)
+            print("{}")
+            return
+        }
         let application = NSApplication.shared
         if CommandLine.arguments.contains("--check-login-item") {
             let loginItem = LoginItemManager()

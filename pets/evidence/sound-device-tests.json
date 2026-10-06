@@ -1,0 +1,65 @@
+{
+  "player_state_preserved": "PASS",
+  "mic_ready": true,
+  "free_heap": 52592,
+  "mic_stack_free": 1916,
+  "quiet_rms_range": [
+    109,
+    899
+  ],
+  "quiet_baseline_range": [
+    309,
+    427
+  ],
+  "quiet_onsets": 0,
+  "quiet_idle_static": true,
+  "real_pcm_nonzero": true,
+  "sample_blocks_advanced": true,
+  "speaker_stimulus_trials": [
+    {
+      "onsets": 0,
+      "peak": 1013,
+      "hopped": false,
+      "returned_to_rest": true
+    },
+    {
+      "onsets": 0,
+      "peak": 640,
+      "hopped": false,
+      "returned_to_rest": true
+    }
+  ],
+  "sound_hop_observed": true,
+  "returns_to_rest": true,
+  "panic_lines": 0,
+  "mic_samples_recorded": false,
+  "physical_monitor": {
+    "onsets": 11,
+    "hops_seen": 60,
+    "returned_to_rest": true,
+    "panic_lines": 0,
+    "samples_recorded": false,
+    "max_rms": 2100,
+    "min_heap": 52484,
+    "min_mic_stack_free": 1916
+  },
+  "pure_detector_tests": "PASS",
+  "onset_threshold": "max(200, ambient RMS * 3 + 80), two 20ms blocks",
+  "hop_duration_ms": 480,
+  "hop_height_px": 8,
+  "warmup_ms": 2000,
+  "transmits_pcm": false,
+  "consumes_tokens": false,
+  "audio_recording": false,
+  "initial_stack_fault_fixed": "PASS",
+  "final_worker_local_frame_bytes": 64,
+  "game_pages_after_audio_enabled": [
+    1,
+    2,
+    0
+  ],
+  "settings_after_audio_enabled": "PASS",
+  "mic_settings_capture": "PASS",
+  "player_and_token_state_after_all_audio_tests": "PASS",
+  "panic_lines_after_page_tests": 0
+}

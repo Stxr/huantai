@@ -1,0 +1,19 @@
+{
+  "service_discovery": "PASS",
+  "fragment_size": 20,
+  "unauthenticated_and_wrong_key_rejected": "PASS",
+  "companion_sessions_and_quota_over_ble": "PASS",
+  "ble_input_injection_rejected": "PASS",
+  "snapshot_ack_and_exact_ledger_match": "PASS",
+  "duplicate_no_extra_tokens": "PASS",
+  "stale_seq_rejected": "PASS",
+  "oversized_line_recovery": "PASS",
+  "encrypted_link_and_owner_auth": "PASS",
+  "free_heap": 52544,
+  "disconnect_reconnect_auth_snapshot_ack": "PASS",
+  "private_counters_and_key_in_report": false,
+  "firmware": "0.4.1",
+  "full_bin_sha256": "d0d91a7b788946d7df6e54286e626c758731feca5fc70596d87749a83617933d",
+  "usb_console_open_during_test": true,
+  "battery_only_unplugged": "UNVERIFIED"
+}

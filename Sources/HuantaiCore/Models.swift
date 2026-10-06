@@ -170,9 +170,42 @@ public struct RemoteTarget: Codable, Identifiable, Sendable, Equatable {
     }
 }
 
+public enum SessionSource: String, CaseIterable, Sendable {
+    case codex, deepSeekHarness
+
+    public var title: String { self == .codex ? "Codex" : "DeepSeek Harness" }
+}
+
 public struct StoreConfiguration: Codable, Sendable, Equatable {
     public var remoteTargets: [RemoteTarget]
-    public init(remoteTargets: [RemoteTarget] = []) { self.remoteTargets = remoteTargets }
+    public var codexEnabled: Bool
+    public var deepSeekHarnessEnabled: Bool
+    public var codexHome: String?
+    public var deepSeekHarnessHome: String?
+    public init(
+        remoteTargets: [RemoteTarget] = [], codexEnabled: Bool = true,
+        deepSeekHarnessEnabled: Bool = true, codexHome: String? = nil, deepSeekHarnessHome: String? = nil
+    ) {
+        self.remoteTargets = remoteTargets
+        self.codexEnabled = codexEnabled
+        self.deepSeekHarnessEnabled = deepSeekHarnessEnabled
+        self.codexHome = codexHome
+        self.deepSeekHarnessHome = deepSeekHarnessHome
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case remoteTargets, codexEnabled, deepSeekHarnessEnabled, codexHome, deepSeekHarnessHome
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        remoteTargets = try values.decodeIfPresent([RemoteTarget].self, forKey: .remoteTargets) ?? []
+        codexEnabled = try values.decodeIfPresent(Bool.self, forKey: .codexEnabled) ?? true
+        deepSeekHarnessEnabled =
+            try values.decodeIfPresent(Bool.self, forKey: .deepSeekHarnessEnabled) ?? true
+        codexHome = try values.decodeIfPresent(String.self, forKey: .codexHome)
+        deepSeekHarnessHome = try values.decodeIfPresent(String.self, forKey: .deepSeekHarnessHome)
+    }
 }
 
 public enum HuantaiError: LocalizedError {
@@ -187,7 +220,7 @@ public enum HuantaiError: LocalizedError {
         switch self {
         case .invalidConfiguration(let reason), .sourceUnavailable(let reason): return reason
         case .sessionNotFound: return "未找到指定会话；请先刷新索引。"
-        case .invalidOpenURL: return "打开链接仅接受已支持的 Codex 或飞书聊天、话题链接。"
+        case .invalidOpenURL: return "打开链接仅接受已支持的 Codex、飞书聊天/话题链接或 DeepSeek Harness 应用入口。"
         case .openUnavailable: return "该会话尚无已核验的打开链接。"
         case .invalidUsageSnapshot: return "用量快照无有效周窗口；需要官方 usedPercent、10080 分钟窗口及秒级 resetsAt。"
         }

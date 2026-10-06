@@ -3,6 +3,8 @@ import Foundation
 
 /// Native routes from installed applications and Botmux's thread-link generator.
 public enum SourceOpening {
+    public static let deepSeekHarnessURL = "dsh://open"
+
     public static func codexURL(sessionID: String) -> String? {
         guard UUID(uuidString: sessionID) != nil else { return nil }
         return "codex://threads/" + sessionID.lowercased()
@@ -65,13 +67,34 @@ public enum SourceOpening {
         }
     }
 
+    public static func deepSeekHarnessApplication(
+        candidates: [URL] = [
+            URL(fileURLWithPath: "/Applications/DeepSeek Harness.app"),
+            FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(
+                "Applications/DeepSeek Harness.app"),
+        ]
+    ) -> URL? {
+        let registered = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.deepseek.dsh")
+        return (candidates + [registered].compactMap { $0 }).first {
+            Bundle(url: $0)?.bundleIdentifier == "com.deepseek.dsh"
+        }
+    }
+
     public static func open(_ url: URL, completion: @escaping (Error?) -> Void) {
         guard let value = SessionStore.validatedOpenURL(url.absoluteString), let url = URL(string: value)
         else {
             completion(HuantaiError.invalidOpenURL)
             return
         }
-        if url.scheme?.lowercased() == "codex" {
+        if url.scheme?.lowercased() == "dsh" {
+            guard let application = deepSeekHarnessApplication() else {
+                completion(HuantaiError.sourceUnavailable("未找到已安装的官方 DeepSeek Harness 应用，请先安装。"))
+                return
+            }
+            NSWorkspace.shared.openApplication(at: application, configuration: .init()) { _, error in
+                completion(error)
+            }
+        } else if url.scheme?.lowercased() == "codex" {
             guard let application = codexApplication() else {
                 completion(
                     HuantaiError.sourceUnavailable(

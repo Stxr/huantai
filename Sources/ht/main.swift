@@ -17,7 +17,7 @@ let help = """
       ht usage refresh [--json]
       ht usage import <官方 JSON 快照文件>
       ht config
-      ht config map <ID> <已支持的 Codex 或飞书聊天、话题 URL>
+      ht config map <ID> <已支持的 Codex、飞书链接或 dsh://open>
       ht config remote-add <名称> <user@host> [会话根目录]
 
     收藏、完成状态与索引保存在 HUANTAI_HOME 或 ~/Library/Application Support/huantai。

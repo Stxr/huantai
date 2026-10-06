@@ -1,0 +1,495 @@
+{
+  "checked_at": "2026-10-06",
+  "timezone": "Asia/Shanghai",
+  "upstream": {
+    "repository": "https://github.com/FoloToy/ai-passport",
+    "main_commit": "33d3d1d93a1125b356b47b6d83a7a60121be801e",
+    "ble_reference_commit": "9f5e2a43b7f8da9dda119174f0286ca8f2485795",
+    "pet_reference_commit": "a4864752cca4d68ceca61ba3c73e39a473bc3031"
+  },
+  "hardware": {
+    "enumeration": "PASS",
+    "vendor_id": "303a",
+    "product_id": "1001",
+    "passive_device_to_host": "PASS",
+    "hello_prefix": "CODO HELLO",
+    "host_to_device_protocol": "PASS",
+    "explicit_reset_requested": true,
+    "flash_written": true,
+    "chip_id_and_flash_size_rom_query": "PASS",
+    "initial_passive_observation": {
+      "duration_seconds": 6,
+      "received_bytes": 1126,
+      "hello_observed": true,
+      "hello_sample": "CODO HELLO 1 240 320 97"
+    },
+    "later_passive_observation": {
+      "duration_seconds": 6,
+      "received_bytes": 188,
+      "hello_observed": false
+    },
+    "hello_on_every_reconnect": "PASS for token-pet firmware",
+    "chip": "ESP32-C3 revision v1.1",
+    "flash_size_bytes": 8388608
+  },
+  "account_token_usage": {
+    "cli_version": "0.160.1",
+    "method": "account/usage/read",
+    "read": "PASS",
+    "lifetime_tokens_present": true,
+    "daily_buckets_present": true,
+    "latest_bucket_date": "2026-10-06",
+    "same_day_realtime_bucket": "same-day bucket observed; realtime completeness not proven",
+    "daily_bucket_timezone": "UNVERIFIED",
+    "numbers_retained_in_public_evidence": false
+  },
+  "local_tokens": {
+    "scope": "live collector with 310 discovered files and fresh post-baseline meals",
+    "sampled_file_count": 3,
+    "samples_have_token_events": true,
+    "fields": [
+      "cache_write_input_tokens",
+      "cached_input_tokens",
+      "input_tokens",
+      "output_tokens",
+      "reasoning_output_tokens",
+      "total_tokens"
+    ],
+    "daily_ledger_implemented": true,
+    "transcripts_retained": false,
+    "real_post_baseline_meals_observed": true
+  },
+  "authorization": {
+    "existing_codo_firmware_may_be_replaced": true,
+    "source": "user direct reply during research",
+    "new_firmware_available": true
+  },
+  "pet_firmware": {
+    "build": "PASS",
+    "host_tests": "PASS (20 Python tests, pure model/protocol/game and adaptive-sound tests)",
+    "host_python_test_count": 20,
+    "device_tests": "PASS for protocol, game event injection, actual framebuffer, native current-task opening, BLE companion and save preservation",
+    "idf_version": "5.5.3",
+    "full_bin_sha256": "bc86d88e86f2102e9e2156fa4ae0f23c071711c6e7feb90e35e766dd43a046e0",
+    "full_bin_size": 6507440,
+    "app_elf_sha256": "e941d9d720979997cf1b37e9793a1d9b3d3187a4f40a6f9f3595d4ef530a607b",
+    "write_offset": "0x10000",
+    "write_verification": "PASS",
+    "full_chip_erase": false,
+    "device_protocol": {
+      "hello_snapshot_ack": "PASS",
+      "mappings": 72,
+      "duplicate_and_stale_seq": "PASS",
+      "malformed_and_oversized_recovery": "PASS",
+      "nvs_saved": "PASS",
+      "hardware_reset_persistence": "PASS",
+      "panic_lines_observed": 0
+    },
+    "device_rendering": {
+      "source": "actual LVGL RGB565 flush rows captured over USB",
+      "width": 240,
+      "height": 320,
+      "all_pixels_received": true,
+      "chinese_and_sprite_visual_review": "PASS",
+      "larger_charmander": "PASS",
+      "source_frame": [
+        120,
+        120
+      ],
+      "max_visible_base_sprite_px": 112,
+      "visual_review": "actual board framebuffer received and reviewed",
+      "footer_inside_rounded_corners": "PASS",
+      "name_and_level_row": "PASS",
+      "no_persistent_lock_hint": "PASS",
+      "daily_and_total_on_one_line": "PASS",
+      "scale_range": [
+        1.5,
+        1.5703125
+      ],
+      "quiet_idle_frame": 0,
+      "new_capture_visual_review": "PASS",
+      "header": "connection left, real battery right, name in level row only",
+      "battery_percent_rendered": "PASS",
+      "header_capture_review": "PASS",
+      "three_tier_settings": "PASS"
+    },
+    "unverified": [
+      "Physical button double/long press timing and feel",
+      "Physical panel brightness/color",
+      "Power loss (hardware reset and compatible update tested)"
+    ],
+    "version": "0.4.2",
+    "flashed_app_sha256": "29aea6e2d205271730c7e48997f61bbcdf49eddf67fb67a69744cbc37d67d399",
+    "write_mode": "verified compatible application only",
+    "nvs_preserved": "PASS",
+    "ble_key_preserved": "PASS",
+    "player_adoption_preserved": "PASS",
+    "archive": "firmware/build/firmware/bc86d88e86f2102e9e2156fa4ae0f23c071711c6e7feb90e35e766dd43a046e0",
+    "latest_device_test_scope": "three-tier settings, PWM readback, detector tier, settings rendering, non-default and default hardware reset persistence, unchanged player state"
+  },
+  "research_checks": {
+    "python_syntax": "PASS",
+    "cli_help": "PASS",
+    "json_and_schema_hashes": "PASS",
+    "private_results_git_ignored": "PASS",
+    "pets_whitespace": "PASS",
+    "wiki_diff_check": "PASS",
+    "wiki_links_and_privacy": "PASS"
+  },
+  "runtime": {
+    "url": "http://127.0.0.1:18785/",
+    "default_source": "local",
+    "usb_ack": "PASS",
+    "account_read": "PASS",
+    "real_new_token_meals": "PASS",
+    "private_values_retained_in_public_evidence": false,
+    "autostart_after_mac_reboot": false,
+    "transport": "ble",
+    "bluetooth_ack": "PASS",
+    "connection_preference_persisted": "PASS",
+    "token_source_preserved": "PASS",
+    "companion_received_by_board": "PASS",
+    "adopted_choice_locked": "PASS",
+    "microphone_ready": "PASS",
+    "final_ble_synced": "PASS",
+    "latest_verified_firmware": "0.4.2",
+    "battery_percent_valid": "PASS"
+  },
+  "pokemon": {
+    "evolution_families": 6,
+    "species_downloaded": 19,
+    "growth_levels": 12,
+    "species_changes_at_levels": [
+      5,
+      9
+    ],
+    "mew_evolves": false,
+    "data_commit": "02a8d9dd1b1a4e102b8b32d786d17017e8c9769a",
+    "sprites_commit": "a3a1432e688ea028f12c51371d5253037cb9f17b"
+  },
+  "web_tests": {
+    "desktop": "PASS",
+    "mobile_width": 390,
+    "horizontal_overflow": false,
+    "missing_images": 0,
+    "family_change_preserves_intake": "PASS",
+    "source_controls": "PASS",
+    "csrf_and_routes": "PASS",
+    "demo_screenshots_contain_only_synthetic_meals": true,
+    "larger_pet_width_observed": 236,
+    "connection_controls": [
+      "auto",
+      "usb",
+      "ble"
+    ],
+    "live_ble_badge": "PASS",
+    "production_screenshots_public": false,
+    "adoption_confirmation_and_lock": "PASS",
+    "recent_sessions": 3,
+    "quota_and_countdown": "PASS",
+    "larger_pet_retained": "PASS",
+    "idle_image": "static first-frame PNG",
+    "idle_animation": "none",
+    "steady_lock_hint_removed": "PASS",
+    "header_status_and_battery": {
+      "desktop": "PASS",
+      "mobile_width": 390,
+      "horizontal_overflow": false,
+      "connection_left": "PASS",
+      "battery_right": "PASS",
+      "pet_name_removed_from_header": "PASS",
+      "static_pet_png": "PASS",
+      "idle_animation": "none",
+      "production_screenshot_public": false
+    }
+  },
+  "bluetooth": {
+    "service_discovery": "PASS",
+    "fragment_size": 20,
+    "unauthenticated_and_wrong_key_rejected": "PASS",
+    "snapshot_ack_and_exact_ledger_match": "PASS",
+    "duplicate_no_extra_tokens": "PASS",
+    "stale_seq_rejected": "PASS",
+    "oversized_line_recovery": "PASS",
+    "encrypted_link_and_owner_auth": "PASS",
+    "free_heap": 52544,
+    "disconnect_reconnect_auth_snapshot_ack": "PASS",
+    "private_counters_and_key_in_report": false,
+    "name": "TokenPet",
+    "service_uuid": "5f8f0001-2f76-4f47-9ef8-4bb38d901001",
+    "macos_access": "PASS",
+    "live_snapshot_ack": "PASS",
+    "runtime_dependency": "bleak 3.0.1",
+    "pairing_method": "encrypted BLE plus application key provisioned over USB",
+    "device_battery_operation": "NOT_RUN",
+    "companion_sessions_and_quota_over_ble": "PASS",
+    "ble_input_injection_rejected": "PASS",
+    "firmware": "0.4.1",
+    "full_bin_sha256": "d0d91a7b788946d7df6e54286e626c758731feca5fc70596d87749a83617933d",
+    "usb_console_open_during_test": true,
+    "battery_only_unplugged": "UNVERIFIED",
+    "current_0_4_2_live_auth_and_snapshot_ack": "PASS; see preferences-runtime-tests.json; full negative tests above belong to 0.4.1"
+  },
+  "game": {
+    "confirmation_cancel_no_production_adoption": "PASS",
+    "double_ok_circular_pages_and_up_down_selection": "PASS",
+    "long_ok_settings_quota_details_return": "PASS",
+    "device_single_ok_current_task_native_open_and_ack": "PASS",
+    "panic_lines_observed": 0,
+    "real_profile_restored_unadopted": "PASS",
+    "free_heap": 66848,
+    "button_input": "USB diagnostic event injection into the same worker/state machine; not physical timing proof",
+    "final_application_update_player_choice_preserved": "PASS",
+    "host_tests": 20,
+    "auth_response_loss_retry_test": "PASS",
+    "physical_button_timing": "UNVERIFIED",
+    "final_footer_capture_review": "PASS",
+    "private_titles_counts_and_keys_in_report": false,
+    "pages": [
+      "pet",
+      "recent_three_sessions",
+      "daily_meals"
+    ],
+    "settings": [
+      "weekly_remaining_reference_countdown",
+      "pet_and_connection_details"
+    ],
+    "family_locked_after_confirmation": "PASS",
+    "legacy_v1_to_v2_nvs_migration": "PASS",
+    "source": "running Huantai loopback snapshot and native open API",
+    "hardware_charset": "ASCII and printable GB2312",
+    "dynamic_body_extra_glyphs": 7445,
+    "token_source_preserved": "PASS",
+    "firmware_archive": "firmware/build/firmware/55434ed0eb6e2c0bf7fad01c1468726a8af297c8841932dcf1756708716c749b",
+    "full_bin_hash": "55434ed0eb6e2c0bf7fad01c1468726a8af297c8841932dcf1756708716c749b",
+    "elf_hash": "c68a95d39a278a4526fe7b872429aaa2c8c05ebe9b5a2bb1862fa6fcaf09cd09",
+    "audio_enabled_page_and_settings_regression": "PASS"
+  },
+  "sound": {
+    "player_state_preserved": "PASS",
+    "mic_ready": true,
+    "free_heap": 52592,
+    "mic_stack_free": 1916,
+    "quiet_rms_range": [
+      109,
+      899
+    ],
+    "quiet_baseline_range": [
+      309,
+      427
+    ],
+    "quiet_onsets": 0,
+    "quiet_idle_static": true,
+    "real_pcm_nonzero": true,
+    "sample_blocks_advanced": true,
+    "speaker_stimulus_trials": [
+      {
+        "onsets": 0,
+        "peak": 1013,
+        "hopped": false,
+        "returned_to_rest": true
+      },
+      {
+        "onsets": 0,
+        "peak": 640,
+        "hopped": false,
+        "returned_to_rest": true
+      }
+    ],
+    "sound_hop_observed": true,
+    "returns_to_rest": true,
+    "panic_lines": 0,
+    "mic_samples_recorded": false,
+    "physical_monitor": {
+      "onsets": 11,
+      "hops_seen": 60,
+      "returned_to_rest": true,
+      "panic_lines": 0,
+      "samples_recorded": false,
+      "max_rms": 2100,
+      "min_heap": 52484,
+      "min_mic_stack_free": 1916
+    },
+    "pure_detector_tests": "PASS",
+    "onset_threshold": "max(200, ambient RMS * 3 + 80), two 20ms blocks",
+    "hop_duration_ms": 480,
+    "hop_height_px": 8,
+    "warmup_ms": 2000,
+    "transmits_pcm": false,
+    "consumes_tokens": false,
+    "audio_recording": false,
+    "initial_stack_fault_fixed": "PASS",
+    "final_worker_local_frame_bytes": 64,
+    "game_pages_after_audio_enabled": [
+      1,
+      2,
+      0
+    ],
+    "settings_after_audio_enabled": "PASS",
+    "mic_settings_capture": "PASS",
+    "player_and_token_state_after_all_audio_tests": "PASS",
+    "panic_lines_after_page_tests": 0,
+    "firmware_archive": "firmware/build/firmware/17067ea539dc1044840d85f128d02c43d6977b4990160d6a31e49f188e0ec73e",
+    "full_bin_sha256": "17067ea539dc1044840d85f128d02c43d6977b4990160d6a31e49f188e0ec73e",
+    "elf_sha256": "be69207095a63ed4de5956bf1a6055e31f7b4004e3e4f0e0728e2085d99321a3",
+    "live_runtime_mic_ready": "PASS",
+    "settings_details_after_audio_enabled": "PASS"
+  },
+  "delivery": {
+    "Build": "PASS",
+    "Host tests": "PASS",
+    "Device tests": "PASS for new settings, PWM duty, detector tier, NVS hardware reset, frame capture and unchanged player state",
+    "Unverified": [
+      "Physical button feel/timing",
+      "Physical panel luminance/color",
+      "Voice distance under each threshold tier",
+      "Battery-only unplugged operation and full charge/discharge calibration"
+    ],
+    "firmware_version": "0.4.2",
+    "full_bin_sha256": "bc86d88e86f2102e9e2156fa4ae0f23c071711c6e7feb90e35e766dd43a046e0",
+    "app_elf_sha256": "e941d9d720979997cf1b37e9793a1d9b3d3187a4f40a6f9f3595d4ef530a607b",
+    "archive": "firmware/build/firmware/bc86d88e86f2102e9e2156fa4ae0f23c071711c6e7feb90e35e766dd43a046e0",
+    "app_write_offset": "0x10000",
+    "preserves_player_state": true,
+    "source_and_transport_preserved": true,
+    "audio_on_device_only": true,
+    "wiki": "updated locally, no commit or push"
+  },
+  "header_and_sensitivity": {
+    "firmware": "0.4.1",
+    "player_state_preserved": "PASS",
+    "battery_soc_valid": "PASS",
+    "battery_percent": 98,
+    "mic_ready": true,
+    "mic_nonzero": true,
+    "sample_blocks_advance": true,
+    "sound_onsets": 0,
+    "sound_hop_observed": false,
+    "idle_static_observed": true,
+    "free_heap_min": 52560,
+    "mic_stack_free_min": 1916,
+    "battery_soc_valid_across_refreshes": true,
+    "panic_lines": 0,
+    "audio_and_battery_do_not_change_token_state": "PASS",
+    "top_left_pet_name_removed": "PASS",
+    "connection_at_left": "PASS (actual frame capture)",
+    "battery_at_right": "PASS (actual frame capture)",
+    "pet_name_in_level_row": "PASS",
+    "sensitivity": "max(120, noise_floor * 2 + 40)",
+    "previous_sensitivity": "max(200, noise_floor * 3 + 80)",
+    "soft_sound_regression": "PASS",
+    "steady_background_and_single_click_regression": "PASS",
+    "quiet_state_hardware": "PASS",
+    "battery_source": "CW2017 SOC via BSP, cached every 5 seconds",
+    "unknown_battery_display": "--%",
+    "repeated_rms_sampling_and_battery_reads": "PASS",
+    "real_lighter_voice_distance_calibration": "UNVERIFIED",
+    "runtime": {
+      "host_service": "PASS",
+      "transport": "ble",
+      "status": "synced",
+      "family_preserved": true,
+      "adopted_preserved": true,
+      "battery_percent": 98,
+      "mic_ready": true,
+      "ble_authenticated": true
+    },
+    "web": {
+      "desktop": "PASS",
+      "mobile_width": 390,
+      "horizontal_overflow": false,
+      "connection_left": "PASS",
+      "battery_right": "PASS",
+      "pet_name_removed_from_header": "PASS",
+      "static_pet_png": "PASS",
+      "idle_animation": "none",
+      "production_screenshot_public": false
+    },
+    "ble_acceptance": "evidence/bluetooth-tests.json"
+  },
+  "device_preferences": {
+    "acceptance": {
+      "firmware": "0.4.2",
+      "input_method": "USB diagnostic events through the same game worker; physical button feel unverified",
+      "default_brightness_40_and_threshold_low": "PASS",
+      "brightness_cycle_and_pwm_readback": [
+        {
+          "tier": 2,
+          "requested_percent": 75,
+          "pwm_readback_percent": 75
+        },
+        {
+          "tier": 0,
+          "requested_percent": 20,
+          "pwm_readback_percent": 20
+        },
+        {
+          "tier": 1,
+          "requested_percent": 40,
+          "pwm_readback_percent": 40
+        }
+      ],
+      "double_click_does_not_change_setting": "PASS",
+      "mic_three_tiers_apply_live": [
+        {
+          "tier": 1,
+          "applied_tier": 1,
+          "threshold_rms": 467
+        },
+        {
+          "tier": 2,
+          "applied_tier": 2,
+          "threshold_rms": 566
+        },
+        {
+          "tier": 0,
+          "applied_tier": 0,
+          "threshold_rms": 356
+        }
+      ],
+      "nondefault_low_brightness_medium_threshold_survive_reset": "PASS",
+      "final_default_restored_and_saved": "PASS",
+      "player_tokens_and_adoption_unchanged": "PASS",
+      "mic_blocks_advance": true,
+      "free_heap": 52388,
+      "mic_stack_free": 1904,
+      "battery_valid": true,
+      "panic_lines": 0,
+      "physical_luminance_and_sound_distance": "UNVERIFIED",
+      "settings_framebuffer_review": "PASS",
+      "chinese_titles_tiers_and_hints": "PASS",
+      "selected_rows_and_footer_inside_screen": "PASS",
+      "full_bin_sha256": "bc86d88e86f2102e9e2156fa4ae0f23c071711c6e7feb90e35e766dd43a046e0",
+      "app_elf_sha256": "e941d9d720979997cf1b37e9793a1d9b3d3187a4f40a6f9f3595d4ef530a607b",
+      "separate_nvs_preferences_key": "preferences"
+    },
+    "runtime": {
+      "host_service": "PASS",
+      "firmware": "0.4.2",
+      "transport": "ble",
+      "status": "synced",
+      "exact_snapshot_ack": "PASS",
+      "player_choice_preserved": "PASS",
+      "preferences_preserved_after_host_snapshot": "PASS",
+      "brightness_pwm_percent": 40,
+      "mic_active_tier": 0,
+      "battery_valid": true,
+      "mic_ready": true,
+      "ble_authenticated": true,
+      "fresh_snapshot_ack_and_usb_diagnostics": "PASS"
+    },
+    "thresholds": [
+      "max(120,floor*2+40)",
+      "max(160,floor*2.5+60)",
+      "max(200,floor*3+80)"
+    ],
+    "tier_order": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "default_brightness": "medium / 40%",
+    "default_mic_threshold": "low / more sensitive",
+    "standalone_ble_regression": "NOT_COMPLETED: preflight auth notification timed out; production owner auth and fresh snapshot ACK PASS"
+  }
+}

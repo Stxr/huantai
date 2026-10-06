@@ -1,0 +1,25 @@
+{
+  "hello": {
+    "v": 1,
+    "type": "hello",
+    "app": "token-pet",
+    "firmware": "0.1.0",
+    "width": 240,
+    "height": 320
+  },
+  "state": {
+    "v": 1,
+    "type": "state",
+    "epoch": "00000000000000000000000000000006",
+    "seq": 12,
+    "level": 12,
+    "family": 5,
+    "species_id": 94,
+    "tokens_today": "1200",
+    "pet_tokens_total": "1200",
+    "saved": true,
+    "free_heap": 175344,
+    "page": 0
+  },
+  "panic_lines_observed": 0
+}

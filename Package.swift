@@ -13,7 +13,8 @@ let package = Package(
         .target(name: "HuantaiCore", dependencies: ["CSQLite"]),
         .target(name: "HuantaiWeb", dependencies: ["HuantaiCore"]),
         .executableTarget(name: "ht", dependencies: ["HuantaiCore"]),
-        .executableTarget(name: "HuantaiApp", dependencies: ["HuantaiCore", "HuantaiWeb"]),
+        .executableTarget(
+            name: "HuantaiApp", dependencies: ["HuantaiCore", "HuantaiWeb"], exclude: ["Resources"]),
         .testTarget(name: "HuantaiCoreTests", dependencies: ["HuantaiCore", "CSQLite"]),
         .testTarget(name: "HuantaiWebTests", dependencies: ["HuantaiWeb", "HuantaiCore"]),
         .testTarget(name: "HuantaiAppTests", dependencies: ["HuantaiApp", "HuantaiCore"]),

@@ -1,0 +1,345 @@
+{
+  "schema": 1,
+  "source": "PokeAPI",
+  "sprites_commit": "a3a1432e688ea028f12c51371d5253037cb9f17b",
+  "data_commit": "02a8d9dd1b1a4e102b8b32d786d17017e8c9769a",
+  "families": [
+    {
+      "key": "charmander",
+      "base_id": 4,
+      "chain_id": 2,
+      "species": [
+        4,
+        5,
+        6
+      ],
+      "evolvable": true
+    },
+    {
+      "key": "pikachu",
+      "base_id": 172,
+      "chain_id": 10,
+      "species": [
+        172,
+        25,
+        26
+      ],
+      "evolvable": true
+    },
+    {
+      "key": "bulbasaur",
+      "base_id": 1,
+      "chain_id": 1,
+      "species": [
+        1,
+        2,
+        3
+      ],
+      "evolvable": true
+    },
+    {
+      "key": "squirtle",
+      "base_id": 7,
+      "chain_id": 3,
+      "species": [
+        7,
+        8,
+        9
+      ],
+      "evolvable": true
+    },
+    {
+      "key": "dratini",
+      "base_id": 147,
+      "chain_id": 76,
+      "species": [
+        147,
+        148,
+        149
+      ],
+      "evolvable": true
+    },
+    {
+      "key": "gastly",
+      "base_id": 92,
+      "chain_id": 40,
+      "species": [
+        92,
+        93,
+        94
+      ],
+      "evolvable": true
+    }
+  ],
+  "pokemon": [
+    {
+      "id": 1,
+      "name": "bulbasaur",
+      "name_zh": "妙蛙种子",
+      "types": [
+        "grass",
+        "poison"
+      ],
+      "height_dm": 7,
+      "weight_hg": 69,
+      "sprite": "assets/pokemon/1.gif",
+      "sprite_url": "https://raw.githubusercontent.com/PokeAPI/sprites/a3a1432e688ea028f12c51371d5253037cb9f17b/sprites/pokemon/versions/generation-v/black-white/animated/1.gif",
+      "sha256": "354f4e74e6c3dfe5acfc0758707c07d0792ef592791d05a43dfddec13f34cb93"
+    },
+    {
+      "id": 2,
+      "name": "ivysaur",
+      "name_zh": "妙蛙草",
+      "types": [
+        "grass",
+        "poison"
+      ],
+      "height_dm": 10,
+      "weight_hg": 130,
+      "sprite": "assets/pokemon/2.gif",
+      "sprite_url": "https://raw.githubusercontent.com/PokeAPI/sprites/a3a1432e688ea028f12c51371d5253037cb9f17b/sprites/pokemon/versions/generation-v/black-white/animated/2.gif",
+      "sha256": "7face7e34efaf0ead39466cc383998954e5ebae4041e538d592380c2561255fa"
+    },
+    {
+      "id": 3,
+      "name": "venusaur",
+      "name_zh": "妙蛙花",
+      "types": [
+        "grass",
+        "poison"
+      ],
+      "height_dm": 20,
+      "weight_hg": 1000,
+      "sprite": "assets/pokemon/3.gif",
+      "sprite_url": "https://raw.githubusercontent.com/PokeAPI/sprites/a3a1432e688ea028f12c51371d5253037cb9f17b/sprites/pokemon/versions/generation-v/black-white/animated/3.gif",
+      "sha256": "a93402714a0e8f5ee92a1b995c5e9f3a02034037efebc9c99b2f2b18cc03a4a3"
+    },
+    {
+      "id": 4,
+      "name": "charmander",
+      "name_zh": "小火龙",
+      "types": [
+        "fire"
+      ],
+      "height_dm": 6,
+      "weight_hg": 85,
+      "sprite": "assets/pokemon/4.gif",
+      "sprite_url": "https://raw.githubusercontent.com/PokeAPI/sprites/a3a1432e688ea028f12c51371d5253037cb9f17b/sprites/pokemon/versions/generation-v/black-white/animated/4.gif",
+      "sha256": "d5d898807fb61c5eadeecf71a023b543cc7740e72c833bec5491efbe1eecb0c2"
+    },
+    {
+      "id": 5,
+      "name": "charmeleon",
+      "name_zh": "火恐龙",
+      "types": [
+        "fire"
+      ],
+      "height_dm": 11,
+      "weight_hg": 190,
+      "sprite": "assets/pokemon/5.gif",
+      "sprite_url": "https://raw.githubusercontent.com/PokeAPI/sprites/a3a1432e688ea028f12c51371d5253037cb9f17b/sprites/pokemon/versions/generation-v/black-white/animated/5.gif",
+      "sha256": "645b92eebf8c8ddb09de8eefaf3e9e8b3a73fbd2947640665775f5d634396840"
+    },
+    {
+      "id": 6,
+      "name": "charizard",
+      "name_zh": "喷火龙",
+      "types": [
+        "fire",
+        "flying"
+      ],
+      "height_dm": 17,
+      "weight_hg": 905,
+      "sprite": "assets/pokemon/6.gif",
+      "sprite_url": "https://raw.githubusercontent.com/PokeAPI/sprites/a3a1432e688ea028f12c51371d5253037cb9f17b/sprites/pokemon/versions/generation-v/black-white/animated/6.gif",
+      "sha256": "249c2b1d43cd5e3a00e7029b007aabef7559065c84ae8826a775614c42356c6a"
+    },
+    {
+      "id": 7,
+      "name": "squirtle",
+      "name_zh": "杰尼龟",
+      "types": [
+        "water"
+      ],
+      "height_dm": 5,
+      "weight_hg": 90,
+      "sprite": "assets/pokemon/7.gif",
+      "sprite_url": "https://raw.githubusercontent.com/PokeAPI/sprites/a3a1432e688ea028f12c51371d5253037cb9f17b/sprites/pokemon/versions/generation-v/black-white/animated/7.gif",
+      "sha256": "cfb2c0799c062c09baf49ca8cd946c4a53bb42147ed6cc811b8879281c79aa30"
+    },
+    {
+      "id": 8,
+      "name": "wartortle",
+      "name_zh": "卡咪龟",
+      "types": [
+        "water"
+      ],
+      "height_dm": 10,
+      "weight_hg": 225,
+      "sprite": "assets/pokemon/8.gif",
+      "sprite_url": "https://raw.githubusercontent.com/PokeAPI/sprites/a3a1432e688ea028f12c51371d5253037cb9f17b/sprites/pokemon/versions/generation-v/black-white/animated/8.gif",
+      "sha256": "2a0886ef0d6c89946e2862c06e00cdae270d42675d5519fbae71fec613de10a3"
+    },
+    {
+      "id": 9,
+      "name": "blastoise",
+      "name_zh": "水箭龟",
+      "types": [
+        "water"
+      ],
+      "height_dm": 16,
+      "weight_hg": 855,
+      "sprite": "assets/pokemon/9.gif",
+      "sprite_url": "https://raw.githubusercontent.com/PokeAPI/sprites/a3a1432e688ea028f12c51371d5253037cb9f17b/sprites/pokemon/versions/generation-v/black-white/animated/9.gif",
+      "sha256": "e162c02d4df892f8f659bf31b1dc442facbb1ba5ddc94f24093b6b4af9a1eddd"
+    },
+    {
+      "id": 25,
+      "name": "pikachu",
+      "name_zh": "皮卡丘",
+      "types": [
+        "electric"
+      ],
+      "height_dm": 4,
+      "weight_hg": 60,
+      "sprite": "assets/pokemon/25.gif",
+      "sprite_url": "https://raw.githubusercontent.com/PokeAPI/sprites/a3a1432e688ea028f12c51371d5253037cb9f17b/sprites/pokemon/versions/generation-v/black-white/animated/25.gif",
+      "sha256": "0ddc94c6f8cd432e3fd8972b4eca2a7b72fbfaf130c1970726089feb6fdbacc0"
+    },
+    {
+      "id": 26,
+      "name": "raichu",
+      "name_zh": "雷丘",
+      "types": [
+        "electric"
+      ],
+      "height_dm": 8,
+      "weight_hg": 300,
+      "sprite": "assets/pokemon/26.gif",
+      "sprite_url": "https://raw.githubusercontent.com/PokeAPI/sprites/a3a1432e688ea028f12c51371d5253037cb9f17b/sprites/pokemon/versions/generation-v/black-white/animated/26.gif",
+      "sha256": "46512e7fa6cab519fe0ebd2ceb6625cbb6df8d523bf87553b594a91a2fb6babc"
+    },
+    {
+      "id": 92,
+      "name": "gastly",
+      "name_zh": "鬼斯",
+      "types": [
+        "ghost",
+        "poison"
+      ],
+      "height_dm": 13,
+      "weight_hg": 1,
+      "sprite": "assets/pokemon/92.gif",
+      "sprite_url": "https://raw.githubusercontent.com/PokeAPI/sprites/a3a1432e688ea028f12c51371d5253037cb9f17b/sprites/pokemon/versions/generation-v/black-white/animated/92.gif",
+      "sha256": "3a4481e91eef77b99a643b423de4d924b939907a31216aa5a27bf62a1b7b9aed"
+    },
+    {
+      "id": 93,
+      "name": "haunter",
+      "name_zh": "鬼斯通",
+      "types": [
+        "ghost",
+        "poison"
+      ],
+      "height_dm": 16,
+      "weight_hg": 1,
+      "sprite": "assets/pokemon/93.gif",
+      "sprite_url": "https://raw.githubusercontent.com/PokeAPI/sprites/a3a1432e688ea028f12c51371d5253037cb9f17b/sprites/pokemon/versions/generation-v/black-white/animated/93.gif",
+      "sha256": "a69e1517170a6e74dca52f487081581607009a7134a3bf16d34c06cd170c4027"
+    },
+    {
+      "id": 94,
+      "name": "gengar",
+      "name_zh": "耿鬼",
+      "types": [
+        "ghost",
+        "poison"
+      ],
+      "height_dm": 15,
+      "weight_hg": 405,
+      "sprite": "assets/pokemon/94.gif",
+      "sprite_url": "https://raw.githubusercontent.com/PokeAPI/sprites/a3a1432e688ea028f12c51371d5253037cb9f17b/sprites/pokemon/versions/generation-v/black-white/animated/94.gif",
+      "sha256": "a6abb74d994fbc18581c519bfe047743c9523c3a30898c48d3536c3f3f0683ad"
+    },
+    {
+      "id": 147,
+      "name": "dratini",
+      "name_zh": "迷你龙",
+      "types": [
+        "dragon"
+      ],
+      "height_dm": 18,
+      "weight_hg": 33,
+      "sprite": "assets/pokemon/147.gif",
+      "sprite_url": "https://raw.githubusercontent.com/PokeAPI/sprites/a3a1432e688ea028f12c51371d5253037cb9f17b/sprites/pokemon/versions/generation-v/black-white/animated/147.gif",
+      "sha256": "fb30455032070b08d3d223169c6d398b2ba3c2674411af27deae2e747ae4570f"
+    },
+    {
+      "id": 148,
+      "name": "dragonair",
+      "name_zh": "哈克龙",
+      "types": [
+        "dragon"
+      ],
+      "height_dm": 40,
+      "weight_hg": 165,
+      "sprite": "assets/pokemon/148.gif",
+      "sprite_url": "https://raw.githubusercontent.com/PokeAPI/sprites/a3a1432e688ea028f12c51371d5253037cb9f17b/sprites/pokemon/versions/generation-v/black-white/animated/148.gif",
+      "sha256": "f23d6753191de844659cb885e76ea061df337a85ab2f3cd7c7e82e8cf456f116"
+    },
+    {
+      "id": 149,
+      "name": "dragonite",
+      "name_zh": "快龙",
+      "types": [
+        "dragon",
+        "flying"
+      ],
+      "height_dm": 22,
+      "weight_hg": 2100,
+      "sprite": "assets/pokemon/149.gif",
+      "sprite_url": "https://raw.githubusercontent.com/PokeAPI/sprites/a3a1432e688ea028f12c51371d5253037cb9f17b/sprites/pokemon/versions/generation-v/black-white/animated/149.gif",
+      "sha256": "ea83358260bf2f2081c30b15c11f94cb7debd3f01cd724a9066d3bab5c8043e3"
+    },
+    {
+      "id": 151,
+      "name": "mew",
+      "name_zh": "梦幻",
+      "types": [
+        "psychic"
+      ],
+      "height_dm": 4,
+      "weight_hg": 40,
+      "sprite": "assets/pokemon/151.gif",
+      "sprite_url": "https://raw.githubusercontent.com/PokeAPI/sprites/a3a1432e688ea028f12c51371d5253037cb9f17b/sprites/pokemon/versions/generation-v/black-white/animated/151.gif",
+      "sha256": "6e40f8201fe2542718cd4a3a2b08aa51218a3e4b078d3b1f27abb29ff2245b44"
+    },
+    {
+      "id": 172,
+      "name": "pichu",
+      "name_zh": "皮丘",
+      "types": [
+        "electric"
+      ],
+      "height_dm": 3,
+      "weight_hg": 20,
+      "sprite": "assets/pokemon/172.gif",
+      "sprite_url": "https://raw.githubusercontent.com/PokeAPI/sprites/a3a1432e688ea028f12c51371d5253037cb9f17b/sprites/pokemon/versions/generation-v/black-white/animated/172.gif",
+      "sha256": "5cb0afac0c8527d4616e4721bae31bba017d4f3ddcd4904bcd3d77b7a50d691c"
+    }
+  ],
+  "non_evolving": [
+    {
+      "id": 151,
+      "name_zh": "梦幻",
+      "selectable": false
+    }
+  ],
+  "growth": {
+    "levels": 12,
+    "species_evolution_levels": [
+      5,
+      9
+    ]
+  }
+}

@@ -6,7 +6,7 @@
 
 Codex / Botmux 会话管理 · 彩色额度圆环 · 全局快捷键 · 原生 SwiftUI
 
-<img src="docs/public/images/platforms.svg" alt="macOS 14+ · Apple Silicon ARM64 · Swift 6 · v0.1.0" width="460">
+<img src="docs/public/images/platforms.svg" alt="macOS 14+ · Apple Silicon ARM64 · Swift 6 · v0.2.0" width="460">
 
 <br><br>
 
@@ -35,14 +35,16 @@ Codex / Botmux 会话管理 · 彩色额度圆环 · 全局快捷键 · 原生 S
 
 | | 换台能做什么 |
 | --- | --- |
-| 🪟 **会话聚合** | 汇总本机 Codex 与 Botmux 会话，点击标题直达对应的 Codex 或飞书会话。 |
+| 🪟 **会话聚合** | 默认汇总 Codex、Botmux 与官方 DeepSeek Harness 会话；Codex 与飞书支持标题直达，来源可在设置中配置。 |
 | 💬 **回复预览** | 两行预览快速找回上下文，按 AI 最后一条可见回复的时间排序。 |
 | ⌨️ **键盘导航** | 打开浮窗、上一个 / 下一个、历史后退 / 前进，常用动作都有全局快捷键。 |
 | ⭐ **收藏与完成** | 收藏重要任务，默认隐藏已完成项；需要时随时查看与恢复。 |
 | ◔ **额度一瞥** | 菜单栏圆环显示每日建议或每周剩余，颜色与参考点提示当前节奏。 |
 | 🧩 **三个入口** | 原生 App、`ht` CLI、本机 Web 详情共用索引、收藏与完成状态。 |
 
-切换会话后，屏幕角落的 Toast 显示当前位置，不抢焦点。在成功打开后的 **15 秒内**按 `⌘⇧D`，就能完成当前任务并进入下一项。鼠标点击收藏或完成只修改状态。
+切换会话后，屏幕角落的 Toast 显示当前位置，不抢焦点。在成功打开后的 **15 秒内**按 `⌘⇧D`，就能完成当前任务并进入下一项。按 `⌘⇧Z` 撤回最近一次完成并返回该会话，可连续撤回，不受15秒限制。鼠标点击收藏或完成只修改状态。
+
+设置 → 连接与数据可分别开关 Codex 与 [官方 DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)，并选择数据目录。DeepSeek Harness 默认读取 `~/.dsh`，支持普通和 Zstandard 压缩会话；点击或切换其会话会直接打开官方应用，撤回完成也会返回应用，具体会话需在应用内选择。
 
 ## 让额度变得直观
 
@@ -67,6 +69,8 @@ Codex / Botmux 会话管理 · 彩色额度圆环 · 全局快捷键 · 原生 S
 
 一个连续滚动的设置页，集中调整登录启动、系统 / 浅色 / 深色主题、菜单栏图标与快捷键。开机运行和图标选项使用统一的勾选样式，选择后即刻生效。
 
+可选的任务音效默认关闭，开启后支持 Codex 和 DeepSeek Harness，按“连接与数据”勾选的来源安装 Hook，取消勾选时移除对应 Hook。任务开始、完成或失败时播放红警 EVA 提示音。设置里提供音效文件夹入口，直接替换 `started`、`completed`、`failed` 对应音频即可，无需重启。详情见[使用指南](docs/public/usage.md#设置与登录启动)。
+
 | 默认快捷键 | 动作 |
 | --- | --- |
 | `⌘⌥,` | 打开 / 关闭浮窗 |
@@ -74,12 +78,13 @@ Codex / Botmux 会话管理 · 彩色额度圆环 · 全局快捷键 · 原生 S
 | `⌘⇧\` | 第一个会话 |
 | `⌘⇧←` / `⌘⇧→` | 打开历史的后退 / 前进 |
 | `⌘⇧D` | 成功打开会话后 15 秒内，完成并切换下一项 |
+| `⌘⇧Z` | 撤回最近一次完成，并返回该会话 |
 
 ## 现在开始
 
 支持 **Apple Silicon（ARM64）与 macOS 14 及以上**。
 
-1. 从 [Releases](https://github.com/Stxr/huantai/releases/latest) 下载 `huantai-v0.1.0-macos-arm64.dmg`。
+1. 从 [Releases](https://github.com/Stxr/huantai/releases/latest) 下载 `huantai-v0.2.0-macos-arm64.dmg`。
 2. 打开 DMG，将「换台.app」拖入 Applications 并运行。
 3. 点击菜单栏圆环，或按 `⌘⌥,` 开始换台。
 
@@ -100,6 +105,10 @@ ht usage refresh --json          # 刷新额度摘要
 ```
 
 Web 详情随 App 运行，访问 `http://127.0.0.1:18784/`，查看筛选、连接状态与会话详情。
+
+## Token 宠物
+
+[pets](pets/README.md) 是独立的 ESP32-C3 宠物应用：从账户或本地日志摄入 Token，支持一次领养、12级成长、USB／BLE 同步、最近会话跳转，以及声音触发互动和三档设备设置。需要另行启动本机服务并刷入固件，Mac 安装包仍是换台会话管理工具。
 
 ## 原生、轻巧，数据留在本机
 
@@ -125,7 +134,7 @@ Swift + AppKit + SwiftUI，没有第三方 Swift 包依赖，SQLite 使用系统
 ```bash
 ./scripts/test.sh
 xcrun swift-format lint --strict --recursive Package.swift Sources Tests
-./scripts/release.sh v0.1.0
+./scripts/release.sh v0.2.0
 ```
 
 发布脚本只构建 ARM64，输出 DMG、CLI 压缩包与 SHA-256 校验文件到 `dist/`。运行数据、构建缓存、账户日志及内部审阅记录不进入仓库或发布包。

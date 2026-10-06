@@ -20,8 +20,14 @@ enum AppLaunchConfiguration {
             else { return nil }
             return URL(fileURLWithPath: path, isDirectory: true)
         }
+        let dataDirectory = directory("HUANTAI_HOME")
+        let isolatedDSH =
+            testing
+            ? (dataDirectory ?? FileManager.default.temporaryDirectory).appendingPathComponent(
+                "huantai-test-no-dsh") : nil
         return SessionStore(
-            dataDirectory: directory("HUANTAI_HOME"), codexDirectory: directory("HUANTAI_CODEX_HOME"),
-            botmuxDirectory: directory("HUANTAI_BOTMUX_HOME"))
+            dataDirectory: dataDirectory, codexDirectory: directory("HUANTAI_CODEX_HOME"),
+            botmuxDirectory: directory("HUANTAI_BOTMUX_HOME"),
+            deepSeekHarnessDirectory: directory("HUANTAI_DSH_HOME") ?? isolatedDSH)
     }
 }

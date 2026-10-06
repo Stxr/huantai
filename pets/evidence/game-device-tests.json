@@ -1,0 +1,16 @@
+{
+  "confirmation_cancel_no_production_adoption": "PASS",
+  "double_ok_circular_pages_and_up_down_selection": "PASS",
+  "long_ok_settings_quota_details_return": "PASS",
+  "device_single_ok_current_task_native_open_and_ack": "PASS",
+  "panic_lines_observed": 0,
+  "real_profile_restored_unadopted": "PASS",
+  "free_heap": 66848,
+  "button_input": "USB diagnostic event injection into the same worker/state machine; not physical timing proof",
+  "final_application_update_player_choice_preserved": "PASS",
+  "host_tests": 20,
+  "auth_response_loss_retry_test": "PASS",
+  "physical_button_timing": "UNVERIFIED",
+  "final_footer_capture_review": "PASS",
+  "private_titles_counts_and_keys_in_report": false
+}

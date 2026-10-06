@@ -100,11 +100,13 @@ final class LoginItemTests: XCTestCase {
             environment: [
                 "HUANTAI_HOME": "/fixture/state", "HUANTAI_CODEX_HOME": "/fixture/codex",
                 "HUANTAI_BOTMUX_HOME": "/fixture/botmux",
+                "HUANTAI_DSH_HOME": "/fixture/dsh",
             ])
         let relaunched = AppLaunchConfiguration.store(preferences: preferences, environment: [:])
         XCTAssertEqual(relaunched.dataDirectory, configured.dataDirectory)
         XCTAssertEqual(relaunched.codexDirectory, configured.codexDirectory)
         XCTAssertEqual(relaunched.botmuxDirectory, configured.botmuxDirectory)
+        XCTAssertEqual(relaunched.deepSeekHarnessDirectory, configured.deepSeekHarnessDirectory)
         let overridden = AppLaunchConfiguration.store(
             preferences: preferences, environment: ["HUANTAI_HOME": "/fixture/new-state"])
         XCTAssertEqual(overridden.dataDirectory.path, "/fixture/new-state")
@@ -124,5 +126,8 @@ final class LoginItemTests: XCTestCase {
         let clean = AppLaunchConfiguration.store(
             preferences: preferences, environment: ["HUANTAI_TEST_MODE": "1"])
         XCTAssertNotEqual(clean.dataDirectory.path, "/fixture/real-state")
+        XCTAssertNotEqual(
+            clean.deepSeekHarnessDirectory.path,
+            FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".dsh").path)
     }
 }

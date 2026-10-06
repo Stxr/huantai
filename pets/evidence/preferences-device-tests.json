@@ -1,0 +1,55 @@
+{
+  "firmware": "0.4.2",
+  "input_method": "USB diagnostic events through the same game worker; physical button feel unverified",
+  "default_brightness_40_and_threshold_low": "PASS",
+  "brightness_cycle_and_pwm_readback": [
+    {
+      "tier": 2,
+      "requested_percent": 75,
+      "pwm_readback_percent": 75
+    },
+    {
+      "tier": 0,
+      "requested_percent": 20,
+      "pwm_readback_percent": 20
+    },
+    {
+      "tier": 1,
+      "requested_percent": 40,
+      "pwm_readback_percent": 40
+    }
+  ],
+  "double_click_does_not_change_setting": "PASS",
+  "mic_three_tiers_apply_live": [
+    {
+      "tier": 1,
+      "applied_tier": 1,
+      "threshold_rms": 467
+    },
+    {
+      "tier": 2,
+      "applied_tier": 2,
+      "threshold_rms": 566
+    },
+    {
+      "tier": 0,
+      "applied_tier": 0,
+      "threshold_rms": 356
+    }
+  ],
+  "nondefault_low_brightness_medium_threshold_survive_reset": "PASS",
+  "final_default_restored_and_saved": "PASS",
+  "player_tokens_and_adoption_unchanged": "PASS",
+  "mic_blocks_advance": true,
+  "free_heap": 52388,
+  "mic_stack_free": 1904,
+  "battery_valid": true,
+  "panic_lines": 0,
+  "physical_luminance_and_sound_distance": "UNVERIFIED",
+  "settings_framebuffer_review": "PASS",
+  "chinese_titles_tiers_and_hints": "PASS",
+  "selected_rows_and_footer_inside_screen": "PASS",
+  "full_bin_sha256": "bc86d88e86f2102e9e2156fa4ae0f23c071711c6e7feb90e35e766dd43a046e0",
+  "app_elf_sha256": "e941d9d720979997cf1b37e9793a1d9b3d3187a4f40a6f9f3595d4ef530a607b",
+  "separate_nvs_preferences_key": "preferences"
+}

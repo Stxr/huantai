@@ -15,6 +15,7 @@ final class TaskCompletionTests: XCTestCase {
         var model: AppModel!
         var now: TimeInterval = 100
         var opened: [String] = []
+        var openedURLs: [String] = []
         var failedIDs = Set<String>()
         var delaysOpens = false
         var pending: [(Error?) -> Void] = []
@@ -26,7 +27,8 @@ final class TaskCompletionTests: XCTestCase {
             preferences = try XCTUnwrap(UserDefaults(suiteName: suite))
             store = SessionStore(
                 dataDirectory: root, codexDirectory: root.appendingPathComponent("codex"),
-                botmuxDirectory: root.appendingPathComponent("botmux"))
+                botmuxDirectory: root.appendingPathComponent("botmux"),
+                deepSeekHarnessDirectory: root.appendingPathComponent("dsh"))
             let sessions = (1...count).map { item in
                 let id = String(format: "01234567-89ab-cdef-0123-%012d", item)
                 return SessionRecord(
@@ -43,6 +45,7 @@ final class TaskCompletionTests: XCTestCase {
                     guard let self else { return }
                     let id = String(url.path.dropFirst())
                     self.opened.append(id)
+                    self.openedURLs.append(url.absoluteString)
                     if self.delaysOpens {
                         self.pending.append(callback)
                     } else {
@@ -390,6 +393,262 @@ final class TaskCompletionTests: XCTestCase {
     }
 
     @MainActor
+    func testUndoCompletionRestoresAndReturnsOutsideFilterAfterDeadline() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanup() }
+        let first = fixture.model.snapshot.sessions[0]
+        let second = fixture.model.snapshot.sessions[1]
+        try fixture.store.setFavorite(id: first.id, value: true)
+        fixture.model.navigate(.first)
+        try await waitFor { fixture.model.navigation.currentID == first.id }
+        fixture.model.performShortcut(.completeCurrent)
+        try await waitFor { fixture.model.navigation.currentID == second.id }
+        XCTAssertTrue(fixture.model.toast?.message.contains("⇧⌘Z") == true)
+        fixture.now = 1000
+        fixture.model.sessionQuery = second.title
+        fixture.model.performShortcut(.undoCompletion)
+        try await waitFor { fixture.model.navigation.currentID == first.id }
+        let restored = try fixture.store.snapshot().sessions[0]
+        XCTAssertFalse(restored.isCompleted)
+        XCTAssertTrue(restored.isFavorite)
+        XCTAssertEqual(restored.lastAIReplyAt, first.lastAIReplyAt)
+        XCTAssertEqual(fixture.opened, [first.id, second.id, first.id])
+        XCTAssertEqual(fixture.model.sessionQuery, second.title)
+        XCTAssertEqual(fixture.model.toast?.message, "已撤回完成 · 已返回会话")
+        XCTAssertEqual(fixture.model.toast?.position, 1)
+        XCTAssertEqual(fixture.model.toast?.completionDeadline, 1015)
+        fixture.model.navigate(.back)
+        try await waitFor { fixture.model.navigation.currentID == second.id }
+        fixture.model.navigate(.forward)
+        try await waitFor { fixture.model.navigation.currentID == first.id }
+        let count = fixture.opened.count
+        fixture.model.performShortcut(.undoCompletion)
+        XCTAssertEqual(fixture.model.notice, "没有可撤回的完成记录。")
+        XCTAssertEqual(fixture.opened.count, count)
+    }
+
+    @MainActor
+    func testImmediateUndoWaitsForCompletionSaveAndNextOpening() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanup() }
+        let first = fixture.model.snapshot.sessions[0].id
+        let second = fixture.model.snapshot.sessions[1].id
+        fixture.model.navigate(.first)
+        try await waitFor { fixture.model.navigation.currentID == first }
+        fixture.delaysOpens = true
+        fixture.model.performShortcut(.completeCurrent)
+        fixture.model.performShortcut(.undoCompletion)
+        try await waitFor { fixture.pending.count == 1 }
+        XCTAssertTrue(try fixture.store.snapshot().sessions[0].isCompleted)
+        XCTAssertEqual(fixture.opened, [first, second])
+        fixture.pending.removeFirst()(nil)
+        try await waitFor { fixture.pending.count == 1 }
+        XCTAssertFalse(try fixture.store.snapshot().sessions[0].isCompleted)
+        XCTAssertEqual(fixture.opened, [first, second, first])
+        XCTAssertEqual(fixture.model.navigation.currentID, second)
+        fixture.pending.removeFirst()(nil)
+        try await waitFor { fixture.model.navigation.currentID == first }
+        XCTAssertEqual(fixture.model.toast?.message, "已撤回完成 · 已返回会话")
+    }
+
+    @MainActor
+    func testConsecutiveUndoRestoresCompletionsInReverseOrder() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanup() }
+        let ids = fixture.model.snapshot.sessions.map(\.id)
+        fixture.model.navigate(.first)
+        try await waitFor { fixture.model.navigation.currentID == ids[0] }
+        fixture.model.performShortcut(.completeCurrent)
+        try await waitFor { fixture.model.navigation.currentID == ids[1] }
+        fixture.model.performShortcut(.completeCurrent)
+        try await waitFor { fixture.model.navigation.currentID == ids[2] }
+        fixture.model.performShortcut(.undoCompletion)
+        fixture.model.performShortcut(.undoCompletion)
+        try await waitFor { fixture.model.navigation.currentID == ids[0] }
+        XCTAssertTrue(try fixture.store.snapshot().sessions.allSatisfy { !$0.isCompleted })
+        XCTAssertEqual(fixture.opened, [ids[0], ids[1], ids[2], ids[1], ids[0]])
+    }
+
+    @MainActor
+    func testUndoOnlyTaskReturnsAndAllowsCompletionAgain() async throws {
+        let fixture = try Fixture(count: 1)
+        defer { fixture.cleanup() }
+        fixture.model.navigate(.first)
+        try await waitFor { fixture.model.navigation.currentID != nil }
+        fixture.model.performShortcut(.completeCurrent)
+        try await waitFor { fixture.model.snapshot.sessions[0].isCompleted }
+        fixture.model.performShortcut(.undoCompletion)
+        try await waitFor { fixture.model.toast?.message == "已撤回完成 · 已返回会话" }
+        XCTAssertEqual(fixture.opened.count, 2)
+        XCTAssertEqual(fixture.model.visibleSessions.count, 1)
+        fixture.model.performShortcut(.completeCurrent)
+        try await waitFor { fixture.model.snapshot.sessions[0].isCompleted }
+        fixture.model.performShortcut(.undoCompletion)
+        try await waitFor { !fixture.model.snapshot.sessions[0].isCompleted && fixture.opened.count == 3 }
+    }
+
+    @MainActor
+    func testUndoRemainsAvailableAfterNextOpenFails() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanup() }
+        let first = fixture.model.snapshot.sessions[0].id
+        fixture.failedIDs.insert(fixture.model.snapshot.sessions[1].id)
+        fixture.model.navigate(.first)
+        try await waitFor { fixture.model.navigation.currentID == first }
+        fixture.model.performShortcut(.completeCurrent)
+        try await waitFor { fixture.model.notice == "合成打开失败" }
+        fixture.model.performShortcut(.undoCompletion)
+        try await waitFor { fixture.model.toast?.message == "已撤回完成 · 已返回会话" }
+        XCTAssertFalse(try fixture.store.snapshot().sessions[0].isCompleted)
+        XCTAssertEqual(fixture.opened.last, first)
+        XCTAssertEqual(fixture.model.navigation.currentID, first)
+    }
+
+    @MainActor
+    func testImmediateUndoSurvivesFailedOrUnavailableNextOpen() async throws {
+        for missingLink in [false, true] {
+            let fixture = try Fixture()
+            defer { fixture.cleanup() }
+            let first = fixture.model.snapshot.sessions[0].id
+            if missingLink {
+                try fixture.setUnavailable(1, reason: "合成来源缺少链接")
+            } else {
+                fixture.failedIDs.insert(fixture.model.snapshot.sessions[1].id)
+            }
+            fixture.model.navigate(.first)
+            try await waitFor { fixture.model.navigation.currentID == first }
+            fixture.model.performShortcut(.completeCurrent)
+            fixture.model.performShortcut(.undoCompletion)
+            try await waitFor { fixture.model.toast?.message == "已撤回完成 · 已返回会话" }
+            XCTAssertFalse(try fixture.store.snapshot().sessions[0].isCompleted)
+            XCTAssertEqual(fixture.model.navigation.currentID, first)
+            XCTAssertEqual(fixture.opened.last, first)
+        }
+    }
+
+    @MainActor
+    func testUndoSaveFailurePreservesRecordAndCanRetry() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanup() }
+        let first = fixture.model.snapshot.sessions[0].id
+        let second = fixture.model.snapshot.sessions[1].id
+        fixture.model.navigate(.first)
+        try await waitFor { fixture.model.navigation.currentID == first }
+        fixture.model.performShortcut(.completeCurrent)
+        try await waitFor { fixture.model.navigation.currentID == second }
+        let preferenceURL = fixture.root.appendingPathComponent("preferences.json")
+        let backupURL = fixture.root.appendingPathComponent("preferences-backup.json")
+        try FileManager.default.moveItem(at: preferenceURL, to: backupURL)
+        try FileManager.default.createDirectory(at: preferenceURL, withIntermediateDirectories: true)
+        fixture.model.performShortcut(.undoCompletion)
+        try await waitFor { fixture.model.notice?.hasPrefix("状态保存失败") == true }
+        XCTAssertEqual(fixture.opened, [first, second])
+        XCTAssertTrue(fixture.model.snapshot.sessions[0].isCompleted)
+        try FileManager.default.removeItem(at: preferenceURL)
+        try FileManager.default.moveItem(at: backupURL, to: preferenceURL)
+        fixture.model.performShortcut(.undoCompletion)
+        try await waitFor { fixture.model.navigation.currentID == first }
+        XCTAssertFalse(try fixture.store.snapshot().sessions[0].isCompleted)
+    }
+
+    @MainActor
+    func testUndoOpenFailureKeepsRestoredStateAndCurrentNavigation() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanup() }
+        let first = fixture.model.snapshot.sessions[0].id
+        let second = fixture.model.snapshot.sessions[1].id
+        fixture.model.navigate(.first)
+        try await waitFor { fixture.model.navigation.currentID == first }
+        fixture.model.performShortcut(.completeCurrent)
+        try await waitFor { fixture.model.navigation.currentID == second }
+        fixture.failedIDs.insert(first)
+        fixture.model.performShortcut(.undoCompletion)
+        try await waitFor { fixture.model.notice == "合成打开失败" }
+        XCTAssertFalse(try fixture.store.snapshot().sessions[0].isCompleted)
+        XCTAssertEqual(fixture.model.navigation.currentID, second)
+        XCTAssertEqual(fixture.model.toast?.message, "已撤回完成 · 会话打开失败：合成打开失败")
+        XCTAssertNil(fixture.model.toast?.completionDeadline)
+        fixture.model.performShortcut(.completeCurrent)
+        XCTAssertFalse(try fixture.store.snapshot().sessions[1].isCompleted)
+        XCTAssertEqual(fixture.opened.count, 3)
+    }
+
+    @MainActor
+    func testUndoTracksNativeManualCompletionAndSkipsAlreadyRestoredEntries() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanup() }
+        let first = fixture.model.snapshot.sessions[0]
+        let second = fixture.model.snapshot.sessions[1]
+        fixture.model.setCompleted(first, value: true)
+        try await waitFor { fixture.model.snapshot.sessions[0].isCompleted }
+        fixture.model.setCompleted(second, value: true)
+        try await waitFor { fixture.model.snapshot.sessions[1].isCompleted }
+        XCTAssertTrue(fixture.opened.isEmpty)
+        // External restore can happen before the app's next periodic snapshot refresh.
+        try fixture.store.setCompleted(id: second.id, value: false)
+        fixture.model.performShortcut(.undoCompletion)
+        try await waitFor { fixture.model.navigation.currentID == first.id }
+        XCTAssertTrue(try fixture.store.snapshot().sessions.allSatisfy { !$0.isCompleted })
+        XCTAssertEqual(fixture.opened, [first.id])
+        fixture.model.performShortcut(.undoCompletion)
+        XCTAssertEqual(fixture.model.notice, "没有可撤回的完成记录。")
+    }
+
+    @MainActor
+    func testHarnessApplicationOpenAllowsCompletionAndUndoReopensApplication() async throws {
+        let fixture = try Fixture(count: 2)
+        defer { fixture.cleanup() }
+        fixture.model.snapshot.sessions[0].id = "dsh:session-fixture"
+        fixture.model.snapshot.sessions[0].source = "DeepSeek Harness"
+        fixture.model.snapshot.sessions[0].openURL = SourceOpening.deepSeekHarnessURL
+        try HuantaiJSON.encoder().encode(fixture.model.snapshot).write(
+            to: fixture.root.appendingPathComponent("index.json"))
+        let first = fixture.model.snapshot.sessions[0]
+        let second = fixture.model.snapshot.sessions[1]
+        fixture.model.openSession(first)
+        try await waitFor { fixture.model.navigation.currentID == first.id }
+        XCTAssertEqual(fixture.model.toast?.message, "已打开 DeepSeek Harness")
+        XCTAssertNotNil(fixture.model.toast?.completionDeadline)
+        fixture.model.performShortcut(.completeCurrent)
+        try await waitFor { fixture.model.navigation.currentID == second.id }
+        XCTAssertTrue(try fixture.store.snapshot().sessions[0].isCompleted)
+        fixture.now += 20
+        fixture.model.performShortcut(.undoCompletion)
+        try await waitFor { fixture.model.navigation.currentID == first.id }
+        XCTAssertEqual(
+            fixture.openedURLs,
+            [SourceOpening.deepSeekHarnessURL, second.openURL!, SourceOpening.deepSeekHarnessURL])
+        XCTAssertFalse(try fixture.store.snapshot().sessions[0].isCompleted)
+        XCTAssertEqual(fixture.model.toast?.message, "已撤回完成 · 已打开 DeepSeek Harness")
+        XCTAssertNotNil(fixture.model.toast?.completionDeadline)
+    }
+
+    @MainActor
+    func testUndoSkipsMissingSessionsAndManualRestoreRemovesUndoRecord() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanup() }
+        let first = fixture.model.snapshot.sessions[0]
+        let second = fixture.model.snapshot.sessions[1]
+        fixture.model.setCompleted(first, value: true)
+        try await waitFor { fixture.model.snapshot.sessions[0].isCompleted }
+        fixture.model.setCompleted(second, value: true)
+        try await waitFor { fixture.model.snapshot.sessions[1].isCompleted }
+        fixture.model.snapshot.sessions.removeAll { $0.id == second.id }
+        try HuantaiJSON.encoder().encode(fixture.model.snapshot).write(
+            to: fixture.root.appendingPathComponent("index.json"))
+        fixture.model.performShortcut(.undoCompletion)
+        try await waitFor { fixture.model.navigation.currentID == first.id }
+        XCTAssertFalse(try fixture.store.snapshot().sessions[0].isCompleted)
+        fixture.model.setCompleted(first, value: true)
+        try await waitFor { fixture.model.snapshot.sessions[0].isCompleted }
+        fixture.model.setCompleted(first, value: false)
+        try await waitFor { !fixture.model.snapshot.sessions[0].isCompleted }
+        fixture.model.performShortcut(.undoCompletion)
+        XCTAssertEqual(fixture.model.notice, "没有可撤回的完成记录。")
+        XCTAssertEqual(fixture.opened, [first.id])
+    }
+
+    @MainActor
     func testToastPanelCannotTakeFocusAndAllowsClicksThroughToSourceApplication() throws {
         let fixture = try Fixture()
         defer { fixture.cleanup() }
@@ -402,6 +661,30 @@ final class TaskCompletionTests: XCTestCase {
         XCTAssertFalse(controller.panel.hidesOnDeactivate)
         XCTAssertTrue(controller.panel.collectionBehavior.contains(.fullScreenAuxiliary))
         XCTAssertFalse(controller.panel.isVisible)
+    }
+
+    @MainActor
+    func testSourceSettingsRefreshAndReloadWithoutResettingOtherSource() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanup() }
+        XCTAssertTrue(fixture.model.sourceEnabled(.codex))
+        XCTAssertTrue(fixture.model.sourceEnabled(.deepSeekHarness))
+        fixture.model.setSessionSource(.deepSeekHarness, enabled: false)
+        try await waitFor { !fixture.model.savingSourceConfiguration }
+        XCTAssertFalse(fixture.model.sourceEnabled(.deepSeekHarness))
+        XCTAssertTrue(fixture.model.sourceEnabled(.codex))
+        let path = fixture.root.appendingPathComponent("alternate-dsh").path
+        fixture.model.setSessionDirectory(.deepSeekHarness, path: path)
+        try await waitFor { !fixture.model.savingSourceConfiguration }
+        XCTAssertEqual(fixture.model.sessionDirectory(.deepSeekHarness), path)
+        let reloaded = AppModel(startServices: false, preferences: fixture.preferences, store: fixture.store)
+        XCTAssertFalse(reloaded.sourceEnabled(.deepSeekHarness))
+        XCTAssertEqual(reloaded.sessionDirectory(.deepSeekHarness), path)
+        XCTAssertTrue(reloaded.sourceEnabled(.codex))
+        fixture.model.setSessionDirectory(.deepSeekHarness, path: "relative")
+        try await waitFor { !fixture.model.savingSourceConfiguration }
+        XCTAssertEqual(fixture.model.sessionDirectory(.deepSeekHarness), path)
+        XCTAssertTrue(fixture.model.notice?.contains("失败") == true)
     }
 
     func testToastFitsBottomRightOnOffsetAndSmallDisplays() {

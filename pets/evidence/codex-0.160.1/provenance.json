@@ -1,0 +1,15 @@
+{
+  "date": "2026-10-06",
+  "cli_version": "codex-cli 0.160.1",
+  "generation_command": "codex app-server generate-ts --out <temporary-directory>",
+  "method": "account/usage/read",
+  "selection_only": true,
+  "note": "Selected official protocol evidence; not a complete SDK. No credentials or account response included.",
+  "sha256": {
+    "GetAccountTokenUsageParams.ts": "1a7a313f8a64fb038abfff5360e61f7e27019d708c37190840e1689633363892",
+    "GetAccountTokenUsageResponse.ts": "c342b7d5c798aac1b65f9753cae44c0a785aeef6d39be82f310f96227b24c5ae",
+    "AccountTokenUsageSummary.ts": "afb22ae8edf0130af826655f557843f22c77dcac69e72cbd40ed93d29487f9b3",
+    "AccountTokenUsageDailyBucket.ts": "dec66188900692d8c4ff29ccd172f65b494a5b68c3d6c4cdf80b7167f5ea8b2a",
+    "TokenUsageBreakdown.ts": "e983f21175fdfdf1a239e26cd8916e1cb765bc0cb7904e2bd9cc83ffe325c8a7"
+  }
+}

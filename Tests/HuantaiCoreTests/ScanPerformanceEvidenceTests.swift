@@ -39,7 +39,8 @@ final class ScanPerformanceEvidenceTests: XCTestCase {
         }
         let store = SessionStore(
             dataDirectory: root.appendingPathComponent("state"), codexDirectory: codex,
-            botmuxDirectory: root.appendingPathComponent("empty-botmux"))
+            botmuxDirectory: root.appendingPathComponent("empty-botmux"),
+            deepSeekHarnessDirectory: root.appendingPathComponent("empty-dsh"))
         let coldStart = ProcessInfo.processInfo.systemUptime
         let cold = try store.refresh()
         let coldMilliseconds = (ProcessInfo.processInfo.systemUptime - coldStart) * 1000

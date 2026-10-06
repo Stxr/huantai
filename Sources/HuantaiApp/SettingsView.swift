@@ -28,6 +28,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 28) {
             startup
             general
+            taskHooks
             shortcuts
             connections
         }
@@ -90,6 +91,13 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 16) {
             sectionHeading("通用", subtitle: "让换台随登录自动运行。")
             card(padding: 0) { LoginItemSettingView(manager: model.loginItem) }
+        }
+    }
+
+    private var taskHooks: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            sectionHeading("任务音效", subtitle: "任务开始、完成或失败时，播放你选的声音。")
+            TaskHookSettingView(manager: model.taskHook, sources: model.taskHookSources)
         }
     }
 
@@ -160,6 +168,10 @@ struct SettingsView: View {
                 .font(.system(size: 11)).foregroundStyle(.secondary)
             card(padding: 0) { shortcutRow(.completeCurrent) }
             Text("通过换台成功打开会话后 15 秒内，标记当前任务完成并打开下一条。已完成任务会从默认列表隐藏，可在列表状态筛选中查看并恢复。")
+                .font(.system(size: 11)).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            card(padding: 0) { shortcutRow(.undoCompletion) }
+            Text("撤回本次运行中最近一次完成，并返回该会话；连续按可依次撤回，不受 15 秒限制。")
                 .font(.system(size: 11)).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             if let warning = model.shortcutMigrationWarning {
@@ -239,6 +251,17 @@ struct SettingsView: View {
     private var connections: some View {
         VStack(alignment: .leading, spacing: 16) {
             sectionHeading("连接与数据", subtitle: "查看来源状态，管理数据更新。")
+            card(padding: 0) {
+                VStack(spacing: 0) {
+                    ForEach(SessionSource.allCases, id: \.self) { source in
+                        sessionSourceRow(source)
+                        if source != SessionSource.allCases.last { Divider().padding(.horizontal, 14) }
+                    }
+                }
+            }
+            Text("默认同时读取 Codex 和官方 DeepSeek Harness。选择各自数据主目录；DeepSeek Harness 默认 ~/.dsh。")
+                .font(.system(size: 11)).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
             card(padding: 0) {
                 VStack(spacing: 0) {
                     if model.snapshot.sources.isEmpty {
@@ -324,6 +347,38 @@ struct SettingsView: View {
             }
         }
         .controlSize(.small)
+    }
+
+    private func sessionSourceRow(_ source: SessionSource) -> some View {
+        let path = model.sessionDirectory(source)
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let displayPath = path.hasPrefix(home + "/") ? "~" + path.dropFirst(home.count) : path
+        return VStack(alignment: .leading, spacing: 0) {
+            Button {
+                model.setSessionSource(source, enabled: !model.sourceEnabled(source))
+            } label: {
+                SettingsOptionRow(
+                    symbol: source == .codex ? "terminal" : "sparkles", title: source.title,
+                    subtitle: model.sourceEnabled(source) ? "已启用 · 只读会话索引" : "已关闭",
+                    selected: model.sourceEnabled(source))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(source.title) 会话来源")
+            .accessibilityAddTraits(model.sourceEnabled(source) ? .isSelected : [])
+            VStack(alignment: .leading, spacing: 8) {
+                Text(displayPath).font(.system(size: 10)).foregroundStyle(.secondary)
+                    .lineLimit(1).truncationMode(.middle).help(path)
+                HStack {
+                    Button("选择目录…") { model.chooseSessionDirectory(source) }
+                        .accessibilityLabel("选择 \(source.title) 数据目录")
+                    Button("恢复默认目录") { model.setSessionDirectory(source, path: nil) }
+                        .accessibilityLabel("恢复 \(source.title) 默认目录")
+                }
+                .buttonStyle(.bordered).controlSize(.small)
+            }
+            .padding(.horizontal, 14).padding(.bottom, 14)
+        }
+        .disabled(model.savingSourceConfiguration)
     }
 
     private var footer: some View {
@@ -433,7 +488,7 @@ private struct LoginItemSettingView: View {
     }
 }
 
-private struct SettingsOptionRow: View {
+struct SettingsOptionRow: View {
     let symbol: String
     let title: String
     let subtitle: String

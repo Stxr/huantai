@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Token Pet · 宝可梦培养</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+<main>
+  <header><div id="connection" class="pill">连接中</div><div id="battery-status" class="pill">电量 --</div></header>
+  <section class="intro"><p class="eyebrow">把每一次思考，喂给你的伙伴。</p><h1>一起成长。</h1><p>用实际使用的 Token 培养宝可梦。12 个成长等级，真实进化，记录每一天的食谱。</p></section>
+  <section class="collection"><div class="section-title"><div><p class="eyebrow">CHOOSE YOUR PARTNER</p><h2>选择你的初始伙伴</h2></div><p class="caption">领养确认后，伙伴不可更换</p></div><div id="families" class="family-grid"></div></section>
+  <section class="layout">
+    <div class="pet-card">
+      <div class="pet-top"><span id="species-number">#004</span><span id="level-badge">成长 1 / 12</span></div>
+      <div class="pet-stage"><div class="orb"></div><img id="pet-image" src="/assets/pokemon/4.png" alt="小火龙"><div class="shadow"></div><span class="spark one">✦</span><span class="spark two">✧</span></div>
+      <h2 id="pet-name">小火龙</h2><p id="pet-subtitle">正在等待第一口 Token</p>
+      <div class="progress"><div id="progress-fill"></div></div><p class="caption" id="next-level">加载成长记录…</p>
+      <div class="pet-footer"><span>12 等级培养</span><span>4 级一进化</span></div>
+    </div>
+    <div class="details">
+      <div class="stats"><article><p id="today-label">今天吃了</p><strong id="today">—</strong><span>Token</span></article><article><p>累计摄入</p><strong id="total">—</strong><span>领养后 Token</span></article></div>
+      <section class="food-card"><div class="section-title"><h2>今日食谱</h2><span id="today-date"></span></div><div id="food-list"><p class="empty">新伙伴正等着开饭。</p></div></section>
+      <section class="source-card"><div class="section-title"><h2>食物来源</h2><span>数据留在本机</span></div><div class="source-options"><button data-source="local" class="active">本地 Codex 日志</button><button data-source="account">账户 Token 增量</button></div><p id="source-note" class="caption"></p><div class="account-row"><span>账户历史累计</span><strong id="account-total">—</strong></div><p id="account-note" class="caption"></p></section>
+      <section class="source-card"><div class="section-title"><h2>设备连接</h2><span>Token Pet</span></div><div class="source-options"><button data-transport="auto">自动</button><button data-transport="usb">USB</button><button data-transport="ble">蓝牙</button></div><p id="transport-note" class="caption"></p></section>
+    </div>
+  </section>
+  <section class="companion-panel">
+    <article class="source-card"><div class="section-title"><h2>最近三个换台会话</h2><span id="sessions-status"></span></div><div id="sessions-list"></div><p class="caption">设备：上/下选择，单击 OK 打开；双击 OK 循环翻页。</p></article>
+    <article class="source-card"><div class="section-title"><h2>换台额度进度</h2><strong id="quota-value">未连接</strong></div><div class="quota-progress"><div id="quota-fill"></div><span id="quota-mark"></span></div><p id="quota-today" class="caption"></p><p id="quota-reset"></p><p id="quota-detail" class="caption"></p><p class="caption">设备：长按 OK 进入设置，上/下查看详情；长按 OK 返回。</p></article>
+  </section>
+  <section class="mew-note"><img src="/assets/pokemon/151.gif" alt="梦幻"><div><h3>图鉴访客 · 梦幻</h3><p>梦幻没有进化链。本版培养伙伴从上面的可进化物种中选择。</p></div></section>
+  <footer>素材与进化数据来自 PokeAPI · USB／蓝牙同步 · <span id="collector-status">扫描中</span></footer>
+</main><div id="toast" role="status"></div><dialog id="adopt-dialog"><h2>确认领养 <span id="adopt-name"></span>？</h2><p>它将成为你的唯一伙伴。确认后不能更换，可以继续成长和进化。</p><div class="dialog-actions"><button id="adopt-cancel">再想一想</button><button id="adopt-confirm">确认，开始饲养</button></div></dialog><script src="/app.js" defer></script>
+</body></html>

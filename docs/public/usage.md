@@ -2,11 +2,17 @@
 
 ## 会话列表
 
-启动后点击菜单栏图标打开浮窗，点击标题在已安装的 Codex 或飞书客户端中打开对应会话。搜索支持标题和目录；星标筛选收藏项，完成状态筛选查看已完成项。收藏和鼠标完成不会自动打开下一会话。
+启动后点击菜单栏图标打开浮窗，点击标题在已安装的 Codex 或飞书客户端中打开对应会话；DeepSeek Harness 会话直接唤起官方应用。搜索支持标题和目录；星标筛选收藏项，完成状态筛选查看已完成项。收藏和鼠标完成不会自动打开下一会话。
+
+默认同时读取 Codex 与 [官方 DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness/blob/master/README.zh.md)。设置 → 连接与数据可分别开关来源、选择数据主目录或恢复默认目录。Codex 默认 `~/.codex`，DeepSeek Harness 默认 `~/.dsh`；配置保存后立即刷新，重启继续沿用。关闭来源不会清除收藏或完成状态；更换目录不会继承旧目录的缓存记录。
+
+DeepSeek Harness 从 `sessions/<项目>/<会话>/session[.vN].jsonl[.zstd]` 读取标题、目录及真实可见 AI 回复，按回复事件的毫秒时间排序，与 Codex 共用列表、收藏和完成状态。压缩读取可使用 Node.js 24+、本机官方桌面客户端的运行时或已安装的 zstd。当前核验的格式为 v0 至 v4，未知代际和不可读记录会提示，不以旧代际冒充当前记录。打开或切换 DeepSeek Harness 会话时，换台直接唤起官方应用；撤回完成也会返回应用。具体会话需在应用内选择，Toast 显示“已打开 DeepSeek Harness”。应用打开成功后可以使用15秒内的完成快捷键，完成/撤回针对换台中选中的会话记录。
 
 列表按最后一条可见 AI 回复倒序，包含进度与最终回复。没有可见回复的会话排在末尾；文件修改时间、用户输入或任务派发不代替 AI 回复时间。
 
 会话通过换台成功打开后的15秒内，`⌘⇧D` 标记当前项完成并打开下一条。屏幕角落的 Toast 展示本次跳转；失效或来源打开失败时不建立新的完成窗口。快捷键可在设置中修改、关闭或恢复默认。
+
+`⌘⇧Z` 撤回本次运行中最近一次由原生快捷键或鼠标完成的会话，将其恢复为未完成并返回该会话；连续按可依次撤回，不受15秒限制，当前搜索或收藏筛选不会阻止返回。撤回记录仅在本次运行中保留，重启后清空；CLI/Web 的完成动作不加入原生撤回记录。
 
 ## 菜单栏与额度
 
@@ -26,6 +32,12 @@
 
 设置 → 通用 → 开机运行，点击整行注册或取消 macOS 登录启动。登录 Mac 后 App 仅驻菜单栏。待系统允许时，设置会显示对应提示和「打开登录项设置」入口；系统中的实际状态是开关依据。
 
+设置 → 任务音效 → 启用任务 Hook，默认关闭。开启后，换台运行时为本机 Codex 和 DeepSeek Harness 的任务开始、完成和失败播放提示音，两个来源共用同一个音效文件夹。支持范围跟随“连接与数据”的勾选：勾选来源会安装对应 Hook，取消勾选会移除它并停止对应提醒；切换数据目录也会迁移 Hook。音效总开关关闭时，勾选来源仍可读取会话，不会安装 Hook。
+
+已有的其他 Hook 和 DeepSeek Harness 用户设置会保留，关闭时只移除换台条目。Codex 新会话会加载 Hook，如提示需要信任，可在 `/hooks` 中审阅。DeepSeek Harness 使用官方 CLI / 桌面客户端共享的数据主目录；插件随配置热加载，启动时加载配置的 profile 在下次启动时生效。手动中断、历史中断修复和普通工具报错不播放失败音效。
+
+点击「打开音效文件夹」即可替换音乐，目录里直接放 `started.mp3`（Building）、`completed.wav`（Construction Complete）、`failed.wav`（Unit Lost）。保留 `started`、`completed`、`failed` 文件名，扩展名可改为 wav、mp3、aiff、aif、m4a 或 caf；每种状态只保留一个音频，无需重启。删除对应文件即可静音该状态。默认音频来自 [RA2 EVA Commander](https://github.com/zenvor/openpeon-ra2-eva-commander)，来源与上游声明的 CC-BY-NC-4.0 信息随文件夹一起提供。
+
 ## CLI
 
 ```bash
@@ -41,6 +53,8 @@ ht usage refresh --json
 ```
 
 已编译的 CLI 默认使用 `~/Library/Application Support/huantai`。`HUANTAI_HOME`、`HUANTAI_CODEX_HOME` 和 `HUANTAI_BOTMUX_HOME` 分别覆盖状态、Codex 和 Botmux 目录。源码中的 `bin/ht` 是开发启动包装，默认状态为工程 `.local/state/`；使用开发 App 时，两者共享这份数据。
+
+`HUANTAI_DSH_HOME` 覆盖 DeepSeek Harness 数据主目录，未指定时读取 `DSH_HOME` 或 `~/.dsh`。设置中保存的目录优先于环境默认；App、CLI、Web 共用来源开关与目录配置。
 
 Web 详情位于 `http://127.0.0.1:18784/`，随 App 运行，提供筛选、详情和状态操作。远端配置目前只保存明确指定的目标，不自动发现或连接 SSH 主机。
 

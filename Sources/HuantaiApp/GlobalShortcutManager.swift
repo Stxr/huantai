@@ -17,7 +17,7 @@ final class GlobalShortcutManager {
     private var handler: EventHandlerRef?
     private var registrations: [ShortcutAction: ShortcutRegistration] = [:]
     private var bindings: [ShortcutAction: ShortcutBinding] = [:]
-    private var completionKeyHeld = false
+    private var heldCompletionActions = Set<ShortcutAction>()
 
     init(register: Register? = nil, onAction: @escaping (ShortcutAction) -> Void) throws {
         self.onAction = onAction
@@ -44,7 +44,7 @@ final class GlobalShortcutManager {
         try ShortcutBinding.validate(proposed)
         let previous = bindings
         registrations.removeAll()
-        completionKeyHeld = false
+        heldCompletionActions.removeAll()
         do {
             registrations = try registerAll(proposed)
             bindings = proposed
@@ -59,7 +59,7 @@ final class GlobalShortcutManager {
 
     func suspend() {
         registrations.removeAll()
-        completionKeyHeld = false
+        heldCompletionActions.removeAll()
     }
 
     fileprivate func handle(_ id: EventHotKeyID, pressed: Bool) {
@@ -71,13 +71,12 @@ final class GlobalShortcutManager {
     }
 
     func handle(_ action: ShortcutAction, pressed: Bool) {
-        if action == .completeCurrent {
+        if action == .completeCurrent || action == .undoCompletion {
             if !pressed {
-                completionKeyHeld = false
+                heldCompletionActions.remove(action)
                 return
             }
-            guard !completionKeyHeld, registrations[action] != nil else { return }
-            completionKeyHeld = true
+            guard registrations[action] != nil, heldCompletionActions.insert(action).inserted else { return }
         }
         if pressed { dispatch(action) }
     }

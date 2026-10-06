@@ -8,7 +8,9 @@ enum PopoverPage { case sessions, settings }
 
 final class AppModel: ObservableObject {
     static let scanInterval: TimeInterval = 5
+    private static let shortcutSchemaVersion = 4
     let loginItem: LoginItemManager
+    let taskHook: TaskHookManager
     let isTestEnvironment = ProcessInfo.processInfo.environment["HUANTAI_TEST_MODE"] == "1"
     @Published var snapshot = IndexSnapshot(
         sessions: [], usage: UsageSummary(), sources: [], updatedAt: Date())
@@ -27,6 +29,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var page = PopoverPage.sessions
     @Published private(set) var showsCompleted = false
     @Published private(set) var toast: SessionToast?
+    @Published private(set) var sourceConfiguration: StoreConfiguration
+    @Published private(set) var savingSourceConfiguration = false
     var onSettingsRequested: (() -> Void)?
     var onPopoverToggleRequested: (() -> Void)?
     var onShortcutConfiguration: (([ShortcutAction: ShortcutBinding]) throws -> Void)?
@@ -36,18 +40,26 @@ final class AppModel: ObservableObject {
         case direct(String)
         case shortcut(SessionNavigationAction)
         case afterCompletion(String)
+        case undoCompletion
+        case afterUndoCompletion(String)
     }
     private enum CompletionRequest {
         case manual(Bool)
         case shortcut
+        case undo
 
         var value: Bool {
             if case .manual(let value) = self { return value }
-            return true
+            return !isUndo
         }
 
         var advancesToNext: Bool {
             if case .shortcut = self { return true }
+            return false
+        }
+
+        var isUndo: Bool {
+            if case .undo = self { return true }
             return false
         }
     }
@@ -57,6 +69,7 @@ final class AppModel: ObservableObject {
     private let store: SessionStore
     private let uptime: () -> TimeInterval
     private var completionWindow: CompletionWindow?
+    private var completionHistory: [String] = []
     private let queue = DispatchQueue(label: "huantai.app-index", qos: .utility)
     private let usageQueue = DispatchQueue(label: "huantai.account-usage", qos: .utility)
     private var server: LocalWebServer?
@@ -76,6 +89,14 @@ final class AppModel: ObservableObject {
         self.preferences = preferences
         self.openSource = openSource
         self.store = store
+        let initialSourceConfiguration = (try? store.configuration()) ?? StoreConfiguration()
+        sourceConfiguration = initialSourceConfiguration
+        taskHook = TaskHookManager(
+            dataDirectory: store.dataDirectory,
+            sources: TaskHookSources(
+                configuration: initialSourceConfiguration,
+                codexHome: store.codexDirectory, deepSeekHarnessHome: store.deepSeekHarnessDirectory),
+            startServices: startServices)
         self.uptime = uptime
         let saved = preferences.string(forKey: "appearance") ?? "system"
         appearance = ["system", "light", "dark"].contains(saved) ? saved : "system"
@@ -90,12 +111,12 @@ final class AppModel: ObservableObject {
                 [ShortcutAction: ShortcutBinding].self, from: data),
             (try? ShortcutBinding.validate(saved)) != nil
         {
-            // Older preferences only contained the five navigation actions. A schema
-            // marker distinguishes that absence from explicitly disabling wake-up later.
+            // Each schema only adds its new actions, preserving earlier intentional disables.
             let version = preferences.integer(forKey: "shortcutSchemaVersion")
-            if version < 3 {
+            if version < Self.shortcutSchemaVersion {
                 let additions: [ShortcutAction] =
-                    version < 2 ? [.showPopover, .completeCurrent] : [.completeCurrent]
+                    (version < 2 ? [.showPopover] : [])
+                    + (version < 3 ? [.completeCurrent] : []) + [.undoCompletion]
                 for action in additions where saved[action] == nil {
                     guard let binding = ShortcutBinding.defaults[action] else { continue }
                     if saved.values.contains(where: { $0.identity == binding.identity }) {
@@ -106,7 +127,7 @@ final class AppModel: ObservableObject {
                 }
                 if let migrated = try? JSONEncoder().encode(saved) {
                     preferences.set(migrated, forKey: "sessionShortcuts")
-                    preferences.set(3, forKey: "shortcutSchemaVersion")
+                    preferences.set(Self.shortcutSchemaVersion, forKey: "shortcutSchemaVersion")
                 }
             }
             shortcuts = saved
@@ -174,6 +195,70 @@ final class AppModel: ObservableObject {
         onSettingsRequested?()
     }
 
+    var taskHookSources: TaskHookSources {
+        TaskHookSources(
+            configuration: sourceConfiguration, codexHome: store.codexDirectory,
+            deepSeekHarnessHome: store.deepSeekHarnessDirectory)
+    }
+
+    func sourceEnabled(_ source: SessionSource) -> Bool {
+        source == .codex ? sourceConfiguration.codexEnabled : sourceConfiguration.deepSeekHarnessEnabled
+    }
+
+    func sessionDirectory(_ source: SessionSource) -> String {
+        source == .codex
+            ? sourceConfiguration.codexHome ?? store.codexDirectory.path
+            : sourceConfiguration.deepSeekHarnessHome ?? store.deepSeekHarnessDirectory.path
+    }
+
+    func setSessionSource(_ source: SessionSource, enabled: Bool) {
+        updateSessionSources { try self.store.setSessionSource(source, enabled: enabled) }
+    }
+
+    func setSessionDirectory(_ source: SessionSource, path: String?) {
+        updateSessionSources { try self.store.setSessionDirectory(source, path: path) }
+    }
+
+    func chooseSessionDirectory(_ source: SessionSource) {
+        let panel = NSOpenPanel()
+        panel.title = "选择 \(source.title) 数据目录"
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.showsHiddenFiles = true
+        panel.directoryURL = URL(fileURLWithPath: sessionDirectory(source), isDirectory: true)
+        if panel.runModal() == .OK, let url = panel.url { setSessionDirectory(source, path: url.path) }
+    }
+
+    private func updateSessionSources(_ operation: @escaping () throws -> Void) {
+        guard !savingSourceConfiguration else { return }
+        savingSourceConfiguration = true
+        queue.async { [weak self] in
+            guard let self else { return }
+            do {
+                try operation()
+                let configuration = try self.store.configuration()
+                DispatchQueue.main.async {
+                    self.sourceConfiguration = configuration
+                    self.taskHook.updateSources(self.taskHookSources)
+                }
+                let snapshot = try self.store.refresh()
+                DispatchQueue.main.async {
+                    self.snapshot = snapshot
+                    self.notice = nil
+                    self.savingSourceConfiguration = false
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.sourceConfiguration = (try? self.store.configuration()) ?? self.sourceConfiguration
+                    self.taskHook.updateSources(self.taskHookSources)
+                    self.notice = "来源设置保存或刷新失败：\(error.localizedDescription)"
+                    self.savingSourceConfiguration = false
+                }
+            }
+        }
+    }
+
     func showSessions() {
         endRecording()
         page = .sessions
@@ -198,7 +283,7 @@ final class AppModel: ObservableObject {
             let data = try JSONEncoder().encode(proposed)
             try onShortcutConfiguration?(proposed)
             preferences.set(data, forKey: "sessionShortcuts")
-            preferences.set(3, forKey: "shortcutSchemaVersion")
+            preferences.set(Self.shortcutSchemaVersion, forKey: "shortcutSchemaVersion")
             shortcuts = proposed
             shortcutMigrationWarning = nil
             shortcutStatus = proposed.isEmpty ? "全局快捷键已关闭" : "已保存 \(proposed.count) 项全局快捷键"
@@ -303,6 +388,23 @@ final class AppModel: ObservableObject {
             onPopoverToggleRequested?()
         } else if action == .completeCurrent {
             completeCurrentSession()
+        } else if action == .undoCompletion {
+            enqueueOpen(.undoCompletion)
+        }
+    }
+
+    private func undoLastCompletion() {
+        while let id = completionHistory.last {
+            guard let session = snapshot.sessions.first(where: { $0.id == id }), session.isCompleted else {
+                completionHistory.removeLast()
+                continue
+            }
+            applyCompletion(session, request: .undo)
+            return
+        }
+        notice = "没有可撤回的完成记录。"
+        if let session = snapshot.sessions.first(where: { $0.id == navigation.currentID }) {
+            toast = SessionToast(session: session, message: "没有可撤回的完成记录", kind: .warning)
         }
     }
 
@@ -340,23 +442,45 @@ final class AppModel: ObservableObject {
         let ordered = advanceToNext ? navigableSessions.map(\.id) : []
         let index = ordered.firstIndex(of: session.id)
         let successors = index.map { Array(ordered.dropFirst($0 + 1)) + Array(ordered.prefix($0)) } ?? []
-        if advanceToNext || (value && previousWindow?.sessionID == session.id) {
+        if advanceToNext || request.isUndo || (value && previousWindow?.sessionID == session.id) {
             completionWindow = nil
         }
         openingSession = true
         queue.async { [weak self] in
             guard let self else { return }
             do {
+                let before = try self.store.snapshot()
+                let wasCompleted = before.sessions.first(where: { $0.id == session.id })?.isCompleted == true
+                if request.isUndo, !wasCompleted {
+                    DispatchQueue.main.async {
+                        self.snapshot = before
+                        self.completionHistory.removeAll { $0 == session.id }
+                        self.openingSession = false
+                        self.completionWindow = previousWindow
+                        self.undoLastCompletion()
+                        self.processOpenRequests()
+                    }
+                    return
+                }
                 try self.store.setCompleted(id: session.id, value: value)
                 let result = try self.store.snapshot()
                 DispatchQueue.main.async {
                     self.snapshot = result
                     self.openingSession = false
                     self.notice = nil
+                    if value, !wasCompleted {
+                        self.completionHistory.removeAll { $0 == session.id }
+                        self.completionHistory.append(session.id)
+                        if self.completionHistory.count > 256 { self.completionHistory.removeFirst() }
+                    } else if !value {
+                        self.completionHistory.removeAll { $0 == session.id }
+                    }
                     let remaining = advanceToNext ? self.navigableSessions : []
                     let remainingIDs = Set(remaining.map(\.id))
                     let next = successors.first(where: { remainingIDs.contains($0) }) ?? remaining.first?.id
-                    if value, advanceToNext, let next {
+                    if request.isUndo {
+                        self.openRequests.insert(.afterUndoCompletion(session.id), at: 0)
+                    } else if value, advanceToNext, let next {
                         self.openRequests.insert(.afterCompletion(next), at: 0)
                     } else {
                         var updated = session
@@ -364,7 +488,8 @@ final class AppModel: ObservableObject {
                         self.toast = SessionToast(
                             session: updated,
                             message: value
-                                ? (advanceToNext ? "已完成 · 当前筛选中没有下一条未完成会话" : "已标为完成")
+                                ? (advanceToNext
+                                    ? "已完成 · 当前筛选中没有下一条未完成会话" + self.undoCompletionHint : "已标为完成")
                                 : "已恢复为未完成", kind: .completed)
                     }
                     self.processOpenRequests()
@@ -387,6 +512,19 @@ final class AppModel: ObservableObject {
         processOpenRequests()
     }
 
+    private var undoCompletionHint: String {
+        shortcuts[.undoCompletion].map { " · \($0.display) 撤回并返回" } ?? ""
+    }
+
+    private func discardPendingOpens() {
+        // A failed source open must still allow an already queued completion undo to run.
+        openRequests.removeAll { request in
+            if case .undoCompletion = request { return false }
+            return true
+        }
+        processOpenRequests()
+    }
+
     private func processOpenRequests() {
         guard !openingSession else { return }
         while !openRequests.isEmpty {
@@ -394,18 +532,31 @@ final class AppModel: ObservableObject {
             let target: String?
             let action: SessionNavigationAction?
             let completedPrevious: Bool
+            let undoneCompletion: Bool
             switch request {
             case .direct(let id):
                 target = id
                 action = nil
                 completedPrevious = false
+                undoneCompletion = false
             case .afterCompletion(let id):
                 target = id
                 action = nil
                 completedPrevious = true
+                undoneCompletion = false
+            case .undoCompletion:
+                undoLastCompletion()
+                if openingSession { return }
+                continue
+            case .afterUndoCompletion(let id):
+                target = id
+                action = nil
+                completedPrevious = false
+                undoneCompletion = true
             case .shortcut(let value):
                 action = value
                 completedPrevious = false
+                undoneCompletion = false
                 target = navigation.target(
                     for: value, orderedIDs: navigableSessions.map(\.id),
                     availableIDs: Set(snapshot.sessions.filter { !$0.isCompleted }.map(\.id)))
@@ -414,17 +565,20 @@ final class AppModel: ObservableObject {
                 continue
             }
             completionWindow = nil
+            let failurePrefix =
+                undoneCompletion ? "已撤回完成 · 会话未能打开：" : completedPrevious ? "上一项已完成 · 下一项未能打开：" : "未能打开："
             guard let value = session.openURL,
                 let validated = SessionStore.validatedOpenURL(value), let url = URL(string: validated)
             else {
                 let reason = session.openUnavailableReason ?? "尚无有效的来源链接，可在会话右键菜单中设置来源链接。"
                 notice = reason
                 toast = SessionToast(
-                    session: session, message: (completedPrevious ? "上一项已完成 · 下一项未能打开：" : "未能打开：") + reason,
+                    session: session, message: failurePrefix + reason,
                     kind: .warning)
-                openRequests.removeAll()
+                discardPendingOpens()
                 return
             }
+            let applicationOnly = url.scheme?.lowercased() == "dsh"
             openingSession = true
             openSource(url) { [weak self] error in
                 DispatchQueue.main.async {
@@ -434,9 +588,10 @@ final class AppModel: ObservableObject {
                         self.notice = error.localizedDescription
                         self.toast = SessionToast(
                             session: session,
-                            message: (completedPrevious ? "上一项已完成 · 下一项打开失败：" : "会话打开失败：")
+                            message: (undoneCompletion
+                                ? "已撤回完成 · 会话打开失败：" : completedPrevious ? "上一项已完成 · 下一项打开失败：" : "会话打开失败：")
                                 + error.localizedDescription, kind: .warning)
-                        self.openRequests.removeAll()
+                        self.discardPendingOpens()
                     } else {
                         self.navigation.didOpen(session.id, action: action)
                         let current = self.snapshot.sessions.first(where: { $0.id == session.id }) ?? session
@@ -444,7 +599,7 @@ final class AppModel: ObservableObject {
                             self.completionWindow = CompletionWindow(
                                 sessionID: session.id, deadline: self.uptime() + 15)
                         }
-                        if action != nil || completedPrevious {
+                        if action != nil || completedPrevious || undoneCompletion || applicationOnly {
                             let filtered = self.navigableSessions
                             let ordered =
                                 filtered.contains(where: { $0.id == session.id })
@@ -453,7 +608,15 @@ final class AppModel: ObservableObject {
                                 session: current,
                                 position: ordered.firstIndex(where: { $0.id == session.id }).map { $0 + 1 },
                                 total: ordered.count,
-                                message: completedPrevious ? "上一项已完成 · 已切换" : "已切换会话",
+                                message: applicationOnly
+                                    ? (undoneCompletion
+                                        ? "已撤回完成 · 已打开 DeepSeek Harness"
+                                        : completedPrevious
+                                            ? "上一项已完成 · 已打开 DeepSeek Harness" + self.undoCompletionHint
+                                            : "已打开 DeepSeek Harness")
+                                    : undoneCompletion
+                                        ? "已撤回完成 · 已返回会话"
+                                        : completedPrevious ? "上一项已完成" + self.undoCompletionHint : "已切换会话",
                                 completionShortcut: self.shortcuts[.completeCurrent]?.display,
                                 completionDeadline: self.completionWindow?.deadline)
                         }
@@ -469,7 +632,8 @@ final class AppModel: ObservableObject {
     func configureLink(_ session: SessionRecord) {
         let alert = NSAlert()
         alert.messageText = "设置来源链接"
-        alert.informativeText = "粘贴 Codex 会话或飞书聊天、话题页链接以覆盖自动关联。Botmux 话题会根据已保存的话题 ID 自动关联。"
+        alert.informativeText =
+            "粘贴 Codex 会话、飞书聊天/话题链接或 dsh://open 以覆盖自动关联。DeepSeek Harness 入口直接打开应用。"
         let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 430, height: 24))
         field.stringValue = session.openURL ?? ""
         field.placeholderString = "已核验的来源链接"

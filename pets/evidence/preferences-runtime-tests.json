@@ -1,0 +1,15 @@
+{
+  "host_service": "PASS",
+  "firmware": "0.4.2",
+  "transport": "ble",
+  "status": "synced",
+  "exact_snapshot_ack": "PASS",
+  "player_choice_preserved": "PASS",
+  "preferences_preserved_after_host_snapshot": "PASS",
+  "brightness_pwm_percent": 40,
+  "mic_active_tier": 0,
+  "battery_valid": true,
+  "mic_ready": true,
+  "ble_authenticated": true,
+  "fresh_snapshot_ack_and_usb_diagnostics": "PASS"
+}

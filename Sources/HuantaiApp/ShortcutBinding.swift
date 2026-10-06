@@ -4,7 +4,7 @@ import HuantaiCore
 
 // Application actions stay separate from the Core's session-navigation history.
 enum ShortcutAction: String, Codable, CaseIterable {
-    case previous, next, first, back, forward, showPopover, completeCurrent
+    case previous, next, first, back, forward, showPopover, completeCurrent, undoCompletion
 
     var navigationAction: SessionNavigationAction? { SessionNavigationAction(rawValue: rawValue) }
     static var navigationActions: [Self] { allCases.filter { $0.navigationAction != nil } }
@@ -59,6 +59,7 @@ struct ShortcutBinding: Codable, Equatable {
             .forward: .init(keyCode: 124, flags: [.command, .shift], keyLabel: "→"),
             .showPopover: .init(keyCode: 43, flags: [.command, .option], keyLabel: ","),
             .completeCurrent: .init(keyCode: 2, flags: [.command, .shift], keyLabel: "D"),
+            .undoCompletion: .init(keyCode: 6, flags: [.command, .shift], keyLabel: "Z"),
         ]
     }
 
@@ -99,6 +100,7 @@ extension ShortcutAction {
         case .forward: return "前进"
         case .showPopover: return "打开 / 关闭浮窗"
         case .completeCurrent: return "完成并切换下一项"
+        case .undoCompletion: return "撤回完成并返回会话"
         }
     }
 }

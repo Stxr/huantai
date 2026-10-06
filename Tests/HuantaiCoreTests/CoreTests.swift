@@ -29,7 +29,9 @@ final class CoreTests: XCTestCase {
     override func tearDownWithError() throws { try FileManager.default.removeItem(at: root) }
 
     private func store() -> SessionStore {
-        SessionStore(dataDirectory: index, codexDirectory: codex, botmuxDirectory: botmux)
+        SessionStore(
+            dataDirectory: index, codexDirectory: codex, botmuxDirectory: botmux,
+            deepSeekHarnessDirectory: root.appendingPathComponent("dsh"))
     }
     private func makeDatabase(_ url: URL, statements: [String]) throws {
         try FileManager.default.createDirectory(

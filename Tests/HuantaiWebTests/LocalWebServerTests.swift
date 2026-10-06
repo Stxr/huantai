@@ -60,7 +60,8 @@ final class LocalWebServerTests: XCTestCase {
         let store = SessionStore(
             dataDirectory: directory.appendingPathComponent("data"),
             codexDirectory: directory.appendingPathComponent("fixture-codex"),
-            botmuxDirectory: directory.appendingPathComponent("fixture-botmux"))
+            botmuxDirectory: directory.appendingPathComponent("fixture-botmux"),
+            deepSeekHarnessDirectory: directory.appendingPathComponent("fixture-dsh"))
         let server = LocalWebServer(store: store, port: UInt16.random(in: 25000...30000))
         try server.start()
         defer { server.stop() }

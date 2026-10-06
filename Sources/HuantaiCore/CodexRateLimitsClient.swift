@@ -19,7 +19,7 @@ public struct CodexRateLimitsClient: Sendable {
         let input = Pipe()
         let output = Pipe()
         process.executableURL = executable
-        process.arguments = ["app-server", "--stdio", "-c", "analytics.enabled=false"]
+        process.arguments = ["app-server", "-c", "analytics.enabled=false"]
         process.standardInput = input
         process.standardOutput = output
         // Deliberately discard stderr instead of collecting or persisting possible identity data.
@@ -50,7 +50,7 @@ public struct CodexRateLimitsClient: Sendable {
             [
                 "id": 1, "method": "initialize",
                 "params": [
-                    "clientInfo": ["name": "huantai", "title": "换台", "version": "0.1.0"],
+                    "clientInfo": ["name": "huantai", "title": "换台", "version": "0.2.0"],
                     "capabilities": [
                         "experimentalApi": false, "requestAttestation": false,
                         // Prevent automatic gateway browser authorization. No login method is sent.
@@ -73,7 +73,10 @@ public struct CodexRateLimitsClient: Sendable {
     }
 
     private static func findExecutable() throws -> URL {
-        let candidates = ["/opt/homebrew/bin/codex", "/usr/local/bin/codex"]
+        let bundled = SourceOpening.codexApplication()?.appendingPathComponent(
+            "Contents/Resources/codex-cli/bin/codex"
+        ).path
+        let candidates = ["/opt/homebrew/bin/codex", "/usr/local/bin/codex"] + [bundled].compactMap { $0 }
         if let path = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) {
             return URL(fileURLWithPath: path)
         }

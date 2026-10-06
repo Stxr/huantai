@@ -1,0 +1,10 @@
+{
+  "host_service": "PASS",
+  "transport": "ble",
+  "status": "synced",
+  "family_preserved": true,
+  "adopted_preserved": true,
+  "battery_percent": 98,
+  "mic_ready": true,
+  "ble_authenticated": true
+}

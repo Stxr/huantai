@@ -6,11 +6,16 @@ public final class SessionStore: @unchecked Sendable {
     public let dataDirectory: URL
     public let codexDirectory: URL
     public let botmuxDirectory: URL
+    public let deepSeekHarnessDirectory: URL
+    private let deepSeekHarnessScanner = DeepSeekHarnessScanner()
     private let mutex = NSLock()
     private let fileManager = FileManager.default
     private var decodedFiles: [String: (stamp: FileStamp, value: Any)] = [:]
 
-    public init(dataDirectory: URL? = nil, codexDirectory: URL? = nil, botmuxDirectory: URL? = nil) {
+    public init(
+        dataDirectory: URL? = nil, codexDirectory: URL? = nil, botmuxDirectory: URL? = nil,
+        deepSeekHarnessDirectory: URL? = nil
+    ) {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let configuredHome = ProcessInfo.processInfo.environment["HUANTAI_HOME"].map {
             URL(fileURLWithPath: $0, isDirectory: true)
@@ -27,6 +32,12 @@ public final class SessionStore: @unchecked Sendable {
             botmuxDirectory ?? ProcessInfo.processInfo.environment["HUANTAI_BOTMUX_HOME"].map {
                 URL(fileURLWithPath: $0, isDirectory: true)
             } ?? home.appendingPathComponent(".botmux/data/session-stores", isDirectory: true)
+        self.deepSeekHarnessDirectory =
+            deepSeekHarnessDirectory
+            ?? (ProcessInfo.processInfo.environment["HUANTAI_DSH_HOME"]
+            ?? ProcessInfo.processInfo.environment["DSH_HOME"]).map {
+                URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath, isDirectory: true)
+            } ?? home.appendingPathComponent(".dsh", isDirectory: true)
     }
 
     public func refresh() throws -> IndexSnapshot {
@@ -41,96 +52,109 @@ public final class SessionStore: @unchecked Sendable {
             var snapshotDate = Date()
             var metadataFresh = false
             var diagnostics = ScanDiagnostics()
-            let codexRoot = codexDirectory.resolvingSymlinksInPath().standardizedFileURL
+            let codexRoot =
+                configuration.codexHome.map { URL(fileURLWithPath: $0, isDirectory: true) } ?? codexDirectory
+            let resolvedCodexRoot = codexRoot.resolvingSymlinksInPath().standardizedFileURL
             let allowedPrefixes = ["sessions", "archived_sessions"].map {
-                codexRoot.appendingPathComponent($0, isDirectory: true).standardizedFileURL.path + "/"
+                resolvedCodexRoot.appendingPathComponent($0, isDirectory: true).standardizedFileURL.path + "/"
             }
-            do {
-                let metadata = try readLocalMetadata()
-                metadataFresh = true
-                var unavailableRollouts = 0
-                for thread in metadata {
-                    let allowed = safeRolloutURL(path: thread.rolloutPath, allowedPrefixes: allowedPrefixes)
-                    var reply: Date?
-                    var preview: String?
-                    if let allowed {
-                        do {
-                            let attributes = try fileManager.attributesOfItem(atPath: allowed.path)
-                            let size = (attributes[.size] as? NSNumber)?.uint64Value ?? 0
-                            let modified =
-                                (attributes[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
-                            let fileNumber = (attributes[.systemFileNumber] as? NSNumber)?.uint64Value
-                            var readOffset: UInt64
-                            if let old = cached.entries[thread.id], old.path == allowed.path,
-                                cached.version == ScanCache.currentVersion,
-                                old.size == size, old.modified == modified, old.fileNumber == fileNumber,
-                                let offset = old.readOffset
-                            {
-                                reply = old.lastAIReplyAt
-                                preview = old.preview
-                                readOffset = offset
-                                diagnostics.unchangedFiles += 1
-                            } else {
-                                let old = cached.entries[thread.id]
-                                let appendOnly =
-                                    cached.version == ScanCache.currentVersion && old?.path == allowed.path
-                                    && fileNumber != nil && old?.fileNumber == fileNumber
-                                    && (old?.size ?? UInt64.max) < size
-                                    && old?.readOffset != nil
-                                    && (old?.readOffset ?? UInt64.max) <= (old?.size ?? 0)
-                                let result = try RolloutReplyScanner.scan(
-                                    in: allowed, startingAt: appendOnly ? old!.readOffset! : 0,
-                                    previousReply: appendOnly ? old?.lastAIReplyAt : nil,
-                                    previousPreview: appendOnly ? old?.preview : nil, limit: size)
-                                reply = result.lastAIReplyAt
-                                preview = result.preview
-                                readOffset = result.committedOffset
-                                diagnostics.bytesRead += result.bytesRead
-                                if appendOnly {
-                                    diagnostics.appendedFiles += 1
+            if configuration.codexEnabled {
+                do {
+                    let metadata = try readLocalMetadata(in: codexRoot)
+                    metadataFresh = true
+                    var unavailableRollouts = 0
+                    for thread in metadata {
+                        let allowed = safeRolloutURL(
+                            path: thread.rolloutPath, allowedPrefixes: allowedPrefixes)
+                        var reply: Date?
+                        var preview: String?
+                        if let allowed {
+                            do {
+                                let attributes = try fileManager.attributesOfItem(atPath: allowed.path)
+                                let size = (attributes[.size] as? NSNumber)?.uint64Value ?? 0
+                                let modified =
+                                    (attributes[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+                                let fileNumber = (attributes[.systemFileNumber] as? NSNumber)?.uint64Value
+                                var readOffset: UInt64
+                                if let old = cached.entries[thread.id], old.path == allowed.path,
+                                    cached.version == ScanCache.currentVersion,
+                                    old.size == size, old.modified == modified, old.fileNumber == fileNumber,
+                                    let offset = old.readOffset
+                                {
+                                    reply = old.lastAIReplyAt
+                                    preview = old.preview
+                                    readOffset = offset
+                                    diagnostics.unchangedFiles += 1
                                 } else {
-                                    diagnostics.fullReadFiles += 1
+                                    let old = cached.entries[thread.id]
+                                    let appendOnly =
+                                        cached.version == ScanCache.currentVersion
+                                        && old?.path == allowed.path
+                                        && fileNumber != nil && old?.fileNumber == fileNumber
+                                        && (old?.size ?? UInt64.max) < size
+                                        && old?.readOffset != nil
+                                        && (old?.readOffset ?? UInt64.max) <= (old?.size ?? 0)
+                                    let result = try RolloutReplyScanner.scan(
+                                        in: allowed, startingAt: appendOnly ? old!.readOffset! : 0,
+                                        previousReply: appendOnly ? old?.lastAIReplyAt : nil,
+                                        previousPreview: appendOnly ? old?.preview : nil, limit: size)
+                                    reply = result.lastAIReplyAt
+                                    preview = result.preview
+                                    readOffset = result.committedOffset
+                                    diagnostics.bytesRead += result.bytesRead
+                                    if appendOnly {
+                                        diagnostics.appendedFiles += 1
+                                    } else {
+                                        diagnostics.fullReadFiles += 1
+                                    }
                                 }
-                            }
-                            nextCache.entries[thread.id] = ScanEntry(
-                                path: allowed.path, size: size,
-                                modified: modified, lastAIReplyAt: reply, preview: preview,
-                                readOffset: readOffset,
-                                fileNumber: fileNumber)
-                        } catch { unavailableRollouts += 1 }
-                    } else {
-                        unavailableRollouts += 1
+                                nextCache.entries[thread.id] = ScanEntry(
+                                    path: allowed.path, size: size,
+                                    modified: modified, lastAIReplyAt: reply, preview: preview,
+                                    readOffset: readOffset,
+                                    fileNumber: fileNumber)
+                            } catch { unavailableRollouts += 1 }
+                        } else {
+                            unavailableRollouts += 1
+                        }
+                        let mapping =
+                            preferences.openMappings[thread.id].flatMap { Self.validatedOpenURL($0) }
+                            ?? SourceOpening.codexURL(sessionID: thread.id)
+                        sessions.append(
+                            SessionRecord(
+                                id: thread.id,
+                                title: displayTitle(thread.title, id: thread.id),
+                                cwd: cleanMetadata(thread.cwd), source: sourceName(thread.source),
+                                machine: "本机",
+                                lastAIReplyAt: reply, lastAIReplyPreview: preview,
+                                isFavorite: preferences.favorites.contains(thread.id),
+                                openURL: mapping,
+                                openUnavailableReason: mapping == nil ? "尚无已核验的来源链接，可显式配置映射" : nil))
                     }
-                    let mapping =
-                        preferences.openMappings[thread.id].flatMap { Self.validatedOpenURL($0) }
-                        ?? SourceOpening.codexURL(sessionID: thread.id)
-                    sessions.append(
-                        SessionRecord(
-                            id: thread.id,
-                            title: displayTitle(thread.title, id: thread.id),
-                            cwd: cleanMetadata(thread.cwd), source: sourceName(thread.source), machine: "本机",
-                            lastAIReplyAt: reply, lastAIReplyPreview: preview,
-                            isFavorite: preferences.favorites.contains(thread.id),
-                            openURL: mapping,
-                            openUnavailableReason: mapping == nil ? "尚无已核验的来源链接，可显式配置映射" : nil))
+                    let detail =
+                        unavailableRollouts == 0
+                        ? "已连接（只读）" : "已连接（只读）；\(unavailableRollouts) 个回复记录不可读或不在允许目录"
+                    sources.append(SourceStatus(id: "local", name: "本机 Codex", status: detail))
+                } catch {
+                    if let previous = try load(IndexSnapshot.self, name: "index.json"),
+                        !previous.sessions.isEmpty
+                    {
+                        sessions = previous.sessions.filter { $0.source != "DeepSeek Harness" }
+                        snapshotDate = previous.updatedAt
+                        nextCache = cached
+                        sources.append(
+                            SourceStatus(
+                                id: "local", name: "本机 Codex",
+                                status: "索引暂不可读；显示上次缓存（"
+                                    + ISO8601DateFormatter().string(from: previous.updatedAt)
+                                    + "）"))
+                    } else {
+                        sources.append(
+                            SourceStatus(id: "local", name: "本机 Codex", status: "未连接：本地会话索引不存在或不可读"))
+                    }
                 }
-                let detail =
-                    unavailableRollouts == 0 ? "已连接（只读）" : "已连接（只读）；\(unavailableRollouts) 个回复记录不可读或不在允许目录"
-                sources.append(SourceStatus(id: "local", name: "本机 Codex", status: detail))
-            } catch {
-                if let previous = try load(IndexSnapshot.self, name: "index.json"), !previous.sessions.isEmpty
-                {
-                    sessions = previous.sessions
-                    snapshotDate = previous.updatedAt
-                    nextCache = cached
-                    sources.append(
-                        SourceStatus(
-                            id: "local", name: "本机 Codex",
-                            status: "索引暂不可读；显示上次缓存（" + ISO8601DateFormatter().string(from: previous.updatedAt)
-                                + "）"))
-                } else {
-                    sources.append(SourceStatus(id: "local", name: "本机 Codex", status: "未连接：本地会话索引不存在或不可读"))
-                }
+            } else {
+                sources.append(SourceStatus(id: "local", name: "本机 Codex", status: "已关闭"))
             }
             let botmux = readBotmuxAssociations()
             if botmux.databaseCount > 0 {
@@ -154,10 +178,44 @@ public final class SessionStore: @unchecked Sendable {
                         id: "botmux", name: "本机 Botmux",
                         status: "已关联 \(sessions.filter { $0.source == "Botmux" }.count) 个 Codex 会话（只读）"))
             }
+            if configuration.deepSeekHarnessEnabled {
+                let root =
+                    configuration.deepSeekHarnessHome.map { URL(fileURLWithPath: $0, isDirectory: true) }
+                    ?? deepSeekHarnessDirectory
+                do {
+                    let result = try deepSeekHarnessScanner.scan(home: root, diagnostics: &diagnostics)
+                    sessions.append(contentsOf: result.sessions)
+                    metadataFresh = true
+                    let detail =
+                        result.unreadable == 0
+                        ? "已连接（只读）；\(result.sessions.count) 个会话"
+                        : "已读取 \(result.sessions.count) 个会话；\(result.unreadable) 个记录格式不支持或不可读"
+                    sources.append(
+                        SourceStatus(id: "deepseek-harness", name: "本机 DeepSeek Harness", status: detail))
+                } catch {
+                    let previous =
+                        (try? load(IndexSnapshot.self, name: "index.json"))?.sessions.filter {
+                            $0.source == "DeepSeek Harness"
+                        } ?? []
+                    sessions.append(contentsOf: previous)
+                    let detail = previous.isEmpty ? "未连接：会话目录不存在或不可读" : "会话目录暂不可读；显示上次缓存"
+                    sources.append(
+                        SourceStatus(id: "deepseek-harness", name: "本机 DeepSeek Harness", status: detail))
+                }
+            } else {
+                sources.append(
+                    SourceStatus(id: "deepseek-harness", name: "本机 DeepSeek Harness", status: "已关闭"))
+            }
             for index in sessions.indices {
                 sessions[index].isFavorite = preferences.favorites.contains(sessions[index].id)
                 sessions[index].isCompleted = preferences.completed.contains(sessions[index].id)
-                if sessions[index].source != "Botmux" {
+                if sessions[index].source == "DeepSeek Harness" {
+                    sessions[index].openURL =
+                        preferences.openMappings[sessions[index].id].flatMap {
+                            Self.validatedOpenURL($0)
+                        } ?? SourceOpening.deepSeekHarnessURL
+                    sessions[index].openUnavailableReason = nil
+                } else if sessions[index].source != "Botmux" {
                     sessions[index].openURL =
                         preferences.openMappings[sessions[index].id]
                         .flatMap { Self.validatedOpenURL($0) }
@@ -208,9 +266,11 @@ public final class SessionStore: @unchecked Sendable {
                 snapshot.sessions[index].openURL =
                     preferences.openMappings[snapshot.sessions[index].id]
                     .flatMap { Self.validatedOpenURL($0) }
-                    ?? (snapshot.sessions[index].source == "Botmux"
-                        ? snapshot.sessions[index].openURL.flatMap { Self.validatedOpenURL($0) }
-                        : SourceOpening.codexURL(sessionID: snapshot.sessions[index].id))
+                    ?? (snapshot.sessions[index].source == "DeepSeek Harness"
+                        ? SourceOpening.deepSeekHarnessURL
+                        : snapshot.sessions[index].source == "Botmux"
+                            ? snapshot.sessions[index].openURL.flatMap { Self.validatedOpenURL($0) }
+                            : SourceOpening.codexURL(sessionID: snapshot.sessions[index].id))
                 if snapshot.sessions[index].openURL != nil {
                     snapshot.sessions[index].openUnavailableReason = nil
                 } else if snapshot.sessions[index].openUnavailableReason == nil {
@@ -271,6 +331,49 @@ public final class SessionStore: @unchecked Sendable {
         try withStoreLock { try load(StoreConfiguration.self, name: "config.json") ?? StoreConfiguration() }
     }
 
+    public func setSessionSource(_ source: SessionSource, enabled: Bool) throws {
+        try withStoreLock {
+            var configuration = try load(StoreConfiguration.self, name: "config.json") ?? StoreConfiguration()
+            switch source {
+            case .codex: configuration.codexEnabled = enabled
+            case .deepSeekHarness: configuration.deepSeekHarnessEnabled = enabled
+            }
+            try save(configuration, name: "config.json")
+        }
+    }
+
+    public func setSessionDirectory(_ source: SessionSource, path: String?) throws {
+        let expanded = path.map {
+            ($0.trimmingCharacters(in: .whitespacesAndNewlines) as NSString).expandingTildeInPath
+        }
+        if let expanded,
+            !expanded.hasPrefix("/")
+                || expanded.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains)
+        {
+            throw HuantaiError.invalidConfiguration("请选择绝对目录路径。")
+        }
+        try withStoreLock {
+            var configuration = try load(StoreConfiguration.self, name: "config.json") ?? StoreConfiguration()
+            let previousPath = source == .codex ? configuration.codexHome : configuration.deepSeekHarnessHome
+            switch source {
+            case .codex: configuration.codexHome = expanded
+            case .deepSeekHarness: configuration.deepSeekHarnessHome = expanded
+            }
+            if previousPath != expanded {
+                // Cached rows belong to their source root; a new directory must not inherit them on failure.
+                if var snapshot = try load(IndexSnapshot.self, name: "index.json") {
+                    snapshot.sessions.removeAll {
+                        source == .deepSeekHarness
+                            ? $0.source == "DeepSeek Harness" : $0.source != "DeepSeek Harness"
+                    }
+                    try save(snapshot, name: "index.json")
+                }
+                if source == .deepSeekHarness { deepSeekHarnessScanner.reset() }
+            }
+            try save(configuration, name: "config.json")
+        }
+    }
+
     public func setRemoteTarget(_ target: RemoteTarget) throws {
         guard !target.id.isEmpty, !target.name.isEmpty,
             target.host.range(of: "^[A-Za-z0-9_.@:-]+$", options: .regularExpression) != nil,
@@ -322,6 +425,11 @@ public final class SessionStore: @unchecked Sendable {
             components.password == nil, components.port == nil,
             let scheme = components.scheme?.lowercased(), let url = components.url
         else { return nil }
+        if scheme == "dsh", components.host?.lowercased() == "open",
+            ["", "/"].contains(components.path), components.query == nil, components.fragment == nil
+        {
+            return SourceOpening.deepSeekHarnessURL
+        }
         if scheme == "codex", components.host == "threads",
             components.query == nil, components.fragment == nil,
             SourceOpening.codexURL(sessionID: String(components.path.dropFirst())) != nil
@@ -460,8 +568,8 @@ public final class SessionStore: @unchecked Sendable {
 
     /// Codex stores generated and renamed display titles separately from the initial prompt.
     /// The index is append-only: later valid entries for a thread replace earlier names.
-    private func readCodexDisplayTitles() -> [String: String] {
-        let url = codexDirectory.appendingPathComponent("session_index.jsonl")
+    private func readCodexDisplayTitles(in root: URL) -> [String: String] {
+        let url = root.appendingPathComponent("session_index.jsonl")
         guard let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey]),
             values.isRegularFile == true, values.isSymbolicLink != true,
             let handle = try? FileHandle(forReadingFrom: url)
@@ -504,8 +612,8 @@ public final class SessionStore: @unchecked Sendable {
         return titles
     }
 
-    private func readLocalMetadata() throws -> [ThreadMetadata] {
-        let dbURL = codexDirectory.appendingPathComponent("state_5.sqlite")
+    private func readLocalMetadata(in root: URL) throws -> [ThreadMetadata] {
+        let dbURL = root.appendingPathComponent("state_5.sqlite")
         guard fileManager.fileExists(atPath: dbURL.path),
             (try? dbURL.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) != true
         else {
@@ -528,7 +636,7 @@ public final class SessionStore: @unchecked Sendable {
             throw HuantaiError.sourceUnavailable("本地 Codex 元数据格式暂不支持")
         }
         defer { sqlite3_finalize(statement) }
-        let displayTitles = readCodexDisplayTitles()
+        let displayTitles = readCodexDisplayTitles(in: root)
         var threads: [ThreadMetadata] = []
         func column(_ index: Int32) -> String {
             guard let value = sqlite3_column_text(statement, index) else { return "" }

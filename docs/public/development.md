@@ -11,6 +11,14 @@
 
 不依赖第三方 Swift 包。SQLite 通过系统模块链接，App 使用系统的 AppKit、SwiftUI、Carbon 和 ServiceManagement。
 
+DeepSeek Harness 的 Zstandard 记录通过已有 Node.js 24+ 的内置解码器、本机官方桌面客户端的 Electron 运行时或已安装的 zstd 只读解压，不启动 Harness 服务，也不触发会话迁移。普通 JSONL 不需要解码运行时；压缩解码缺失或失败会显示具体来源不可读状态。
+
+可选任务 Hook 由 `TaskHookManager` 管理：默认关闭，实际安装范围为音效总开关与 `StoreConfiguration` 中启用来源的交集。来源更新先同步 Hook，再刷新索引，索引读取失败不会阻止停用 Hook；忙碌期间的来源更新串行执行，不丢弃。Codex 按命令精确合并/移除 `UserPromptSubmit`、`Stop`、`Interrupt`，保留其他配置；回调只提交转录路径，不保存提示或回复。独立 `CodexTaskMonitor` 增量监听生命周期，避免历史补播与同轮重复提醒。当前 Codex 0.160.1 的失败任务会持久化为带 `error` 的 `task_complete`，必须检查该字段；不能只按事件名播放完成音效，也不能用工具非零退出或手动中断冒充任务失败。
+
+DeepSeek Harness 使用官方 `session/event` 的 `turn/start`、`turn/end`，通过机器级 `cordis.patch.yml` 插入随 App 分发的 `HuantaiDSHHook.mjs`，支持共享该数据目录的 CLI / 桌面 profiles。插件只写状态、会话/轮次标识、来源目录与时间戳，不读取或保存正文。`completed` 对应完成，`error` / `blocked` / `max-tokens` 对应失败，`aborted` / `interrupted` 静默；子 agent 不单独提醒。启动与重新勾选不补播旧信号，短任务按时间排序，终态去重。移除标记块时保留其他 patch 原文，现有 YAML 用官方运行时的 `!!js` 方言校验，损坏配置不覆盖。来源取消先持久化 gate，已加载的插件与该来源排队音效也立即停用；其他来源保留扫描偏移和播放队列，不丢失进行中任务的终态。清理失败保留路径以重试。
+
+默认音频随 App 放入 `Contents/Resources/CodexSounds`，本地构建与 ARM64 发布脚本均包含这份资源。用户音效在状态目录的 `codex-hooks/sounds` 中平铺为 `started.mp3`、`completed.wav`、`failed.wav`；首次准备后不补回已删除音频，播放前重新解析文件。早期子目录自动迁移，同名自定义文件优先，旧音频另存为 previous 文件。三段来源与上游许可声明随 README 保留。
+
 ## 本地构建
 
 ```bash
@@ -38,11 +46,14 @@ python3 scripts/make-ui-fixture.py .local/ui-fixture
 HUANTAI_TEST_MODE=1 \
 HUANTAI_CODEX_HOME="$PWD/.local/ui-fixture/codex" \
 HUANTAI_BOTMUX_HOME="$PWD/.local/ui-fixture/botmux" \
+HUANTAI_DSH_HOME="$PWD/.local/ui-fixture/dsh" \
 HUANTAI_HOME="$PWD/.local/ui-fixture/state" \
 ./scripts/run-demo.sh --review
 ```
 
 目标目录必须不存在，脚本不会覆盖已有数据。测试模式禁止真实账户刷新，不保存或复用生产启动目录配置。`--review` 使用与菜单栏浮窗相同的生产组件。
+
+测试模式未明确提供 DeepSeek Harness 目录时采用隔离空目录，避免展示真实会话。
 
 ## 数据处理
 

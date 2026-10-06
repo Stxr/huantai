@@ -22,6 +22,8 @@ final class ShortcutTests: XCTestCase {
         XCTAssertEqual(defaults[.showPopover]?.keyCode, 43)
         XCTAssertEqual(defaults[.completeCurrent]?.display, "⇧⌘D")
         XCTAssertEqual(defaults[.completeCurrent]?.keyCode, 2)
+        XCTAssertEqual(defaults[.undoCompletion]?.display, "⇧⌘Z")
+        XCTAssertEqual(defaults[.undoCompletion]?.keyCode, 6)
         var duplicate = defaults
         duplicate[.next] = defaults[.previous]
         XCTAssertThrowsError(try ShortcutBinding.validate(duplicate))
@@ -165,8 +167,8 @@ final class ShortcutTests: XCTestCase {
         XCTAssertEqual(model.shortcuts[.first], custom)
         XCTAssertNil(model.shortcuts[.next])
         XCTAssertEqual(model.shortcuts[.showPopover], ShortcutBinding.defaults[.showPopover])
-        XCTAssertEqual(model.shortcuts.count, 3)
-        XCTAssertEqual(preferences.integer(forKey: "shortcutSchemaVersion"), 3)
+        XCTAssertEqual(model.shortcuts.count, 4)
+        XCTAssertEqual(preferences.integer(forKey: "shortcutSchemaVersion"), 4)
         let reloaded = AppModel(startServices: false, preferences: preferences)
         XCTAssertEqual(reloaded.shortcuts, model.shortcuts)
     }
@@ -302,5 +304,67 @@ final class ShortcutTests: XCTestCase {
         manager.handle(.completeCurrent, pressed: false)
         manager.handle(.completeCurrent, pressed: true)
         XCTAssertEqual(actions, [.completeCurrent, .completeCurrent])
+    }
+
+    @MainActor
+    func testVersionThreeAddsUndoWithoutReenablingDisabledActionsAndPersistsUndoDisable() throws {
+        let (name, preferences) = try preferences()
+        defer { preferences.removePersistentDomain(forName: name) }
+        let custom = ShortcutBinding(keyCode: 0, flags: [.command, .option], keyLabel: "A")
+        preferences.set(try JSONEncoder().encode([ShortcutAction.first: custom]), forKey: "sessionShortcuts")
+        preferences.set(3, forKey: "shortcutSchemaVersion")
+        var model = AppModel(startServices: false, preferences: preferences)
+        XCTAssertEqual(model.shortcuts[.first], custom)
+        XCTAssertNil(model.shortcuts[.completeCurrent])
+        XCTAssertNil(model.shortcuts[.showPopover])
+        XCTAssertEqual(model.shortcuts[.undoCompletion], ShortcutBinding.defaults[.undoCompletion])
+        XCTAssertEqual(preferences.integer(forKey: "shortcutSchemaVersion"), 4)
+        model.updateShortcut(.undoCompletion, binding: nil)
+        model = AppModel(startServices: false, preferences: preferences)
+        XCTAssertNil(model.shortcuts[.undoCompletion])
+        XCTAssertEqual(model.shortcuts[.first], custom)
+        XCTAssertNil(model.shortcuts[.completeCurrent])
+    }
+
+    @MainActor
+    func testUndoMigrationCollisionKeepsCustomBindingAndDoesNotResetOnReload() throws {
+        let (name, preferences) = try preferences()
+        defer { preferences.removePersistentDomain(forName: name) }
+        let binding = try XCTUnwrap(ShortcutBinding.defaults[.undoCompletion])
+        preferences.set(try JSONEncoder().encode([ShortcutAction.first: binding]), forKey: "sessionShortcuts")
+        preferences.set(3, forKey: "shortcutSchemaVersion")
+        let model = AppModel(startServices: false, preferences: preferences)
+        XCTAssertEqual(model.shortcuts[.first], binding)
+        XCTAssertNil(model.shortcuts[.undoCompletion])
+        XCTAssertNotNil(model.shortcutMigrationWarning)
+        try ShortcutBinding.validate(model.shortcuts)
+        XCTAssertNil(AppModel(startServices: false, preferences: preferences).shortcuts[.undoCompletion])
+    }
+
+    func testHeldUndoAndCompletionAreIndependentAndOccupiedUndoKeepsExistingActions() throws {
+        var actions: [ShortcutAction] = []
+        let undo = try XCTUnwrap(ShortcutBinding.defaults[.undoCompletion])
+        var occupied = false
+        let manager = try GlobalShortcutManager(
+            register: { binding, _ in
+                if occupied, binding == undo { throw ShortcutError.message("合成撤回键占用") }
+                return ShortcutRegistration {}
+            }, onAction: { actions.append($0) })
+        try manager.replace(with: ShortcutBinding.defaults)
+        manager.handle(.completeCurrent, pressed: true)
+        manager.handle(.undoCompletion, pressed: true)
+        manager.handle(.undoCompletion, pressed: true)
+        manager.handle(.completeCurrent, pressed: true)
+        XCTAssertEqual(actions, [.completeCurrent, .undoCompletion])
+        manager.handle(.undoCompletion, pressed: false)
+        manager.handle(.undoCompletion, pressed: true)
+        XCTAssertEqual(actions, [.completeCurrent, .undoCompletion, .undoCompletion])
+        try manager.replace(with: ShortcutBinding.defaults.filter { $0.key != .undoCompletion })
+        occupied = true
+        XCTAssertThrowsError(try manager.replace(with: ShortcutBinding.defaults))
+        manager.dispatch(.completeCurrent)
+        manager.dispatch(.showPopover)
+        manager.dispatch(.undoCompletion)
+        XCTAssertEqual(Array(actions.suffix(2)), [.completeCurrent, .showPopover])
     }
 }
