@@ -18,7 +18,7 @@ let help = """
       ht usage import <官方 JSON 快照文件>
       ht config
       ht config map <ID> <已支持的 Codex、飞书链接或 dsh://open>
-      ht config remote-add <名称> <user@host> [会话根目录]
+      ht config remote-add <名称> <user@host> [会话根目录] [Botmux 数据目录]
       ht config remote-remove <名称>
       ht config remote-sync
 
@@ -274,12 +274,14 @@ func run() throws {
             try store.removeRemoteTarget(id: target.id)
             print("已移除远端目标。")
         } else if args.first == "remote-add" {
-            guard args.count == 3 || args.count == 4 else {
-                throw HuantaiError.invalidConfiguration("用法：ht config remote-add <名称> <user@host> [根目录]")
+            guard (3...5).contains(args.count) else {
+                throw HuantaiError.invalidConfiguration(
+                    "用法：ht config remote-add <名称> <user@host> [根目录] [Botmux 数据目录]")
             }
             let target = RemoteTarget(
                 id: "ssh-" + args[1], name: args[1], host: args[2],
-                sessionRoot: args.count == 4 ? args[3] : "~/.codex")
+                sessionRoot: args.count >= 4 ? args[3] : "~/.codex",
+                botmuxRoot: args.count == 5 ? args[4] : nil)
             try store.setRemoteTarget(target)
             print("已保存远端目标；App 将后台同步，可运行 ht config remote-sync 立即同步。")
         } else {

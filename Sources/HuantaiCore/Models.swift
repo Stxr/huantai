@@ -169,11 +169,15 @@ public struct RemoteTarget: Codable, Identifiable, Sendable, Equatable {
     public var name: String
     public var host: String
     public var sessionRoot: String
-    public init(id: String, name: String, host: String, sessionRoot: String = "~/.codex") {
+    public var botmuxRoot: String?
+    public init(
+        id: String, name: String, host: String, sessionRoot: String = "~/.codex", botmuxRoot: String? = nil
+    ) {
         self.id = id
         self.name = name
         self.host = host
         self.sessionRoot = sessionRoot
+        self.botmuxRoot = botmuxRoot
     }
 }
 

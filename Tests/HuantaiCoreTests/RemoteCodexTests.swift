@@ -95,6 +95,44 @@ final class RemoteCodexTests: XCTestCase {
         XCTAssertEqual(scanner.scan(target, cached: [], wait: true).sessions.count, 1)
     }
 
+    func testRemoteBotmuxRouteSurvivesRefreshAndRestartAndMappingOverrides() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = makeStore(directory)
+        let link = SourceOpening.feishuThreadURL(chatID: "oc_fixture", threadID: "omt_topic")!
+        var record = try makeRecord()
+        record.source = "Botmux"
+        record.openURL = link
+        record.openUnavailableReason = nil
+        let remoteRecord = record
+        store.remoteScanner = RemoteCodexScanner { _ in [remoteRecord] }
+        try store.setRemoteTarget(target)
+        XCTAssertEqual(try store.refreshRemotes().sessions.first?.openURL, link)
+        XCTAssertEqual(try store.refresh().sessions.first?.source, "Botmux")
+        XCTAssertEqual(try makeStore(directory).snapshot().sessions.first?.openURL, link)
+        let mapped = SourceOpening.feishuChatURL(chatID: "oc_override")!
+        try store.setOpenMapping(id: record.id, url: mapped)
+        XCTAssertEqual(try store.refresh().sessions.first?.openURL, mapped)
+    }
+
+    func testBotmuxDoesNotGuessMissingOrAmbiguousTopicTargets() throws {
+        func route(_ json: String) throws -> RemoteBotmuxRoute {
+            try JSONDecoder().decode(RemoteBotmuxRoute.self, from: Data(json.utf8))
+        }
+        let missing = try route(#"{"scope":"thread","chatId":"oc_valid"}"#)
+        XCTAssertNil(missing.url)
+        let invalid = try route(#"{"scope":"chat","chatId":"oc_bad?inject"}"#)
+        XCTAssertNil(invalid.url)
+        let a = try route(#"{"scope":"chat","chatId":"oc_a"}"#)
+        let b = try route(#"{"scope":"chat","chatId":"oc_b"}"#)
+        XCTAssertNil(RemoteBotmuxRoute.opening([a, b]).url)
+        XCTAssertEqual(RemoteBotmuxRoute.opening([a, a]).url, a.url)
+        let legacy = try JSONDecoder().decode(
+            RemoteTarget.self,
+            from: Data(#"{"id":"legacy","name":"legacy","host":"example","sessionRoot":"~/.codex"}"#.utf8))
+        XCTAssertNil(legacy.botmuxRoot)
+    }
+
     private func makeRecord() throws -> SessionRecord {
         let data = Data(
             "[{\"id\":\"\(nativeID)\",\"title\":\"远端任务\",\"cwd\":\"/srv/project\",\"reply\":1000,\"preview\":\"已完成\"}]"

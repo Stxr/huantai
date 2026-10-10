@@ -7,6 +7,7 @@ struct RemoteConnectionsView: View {
     @State private var name = ""
     @State private var host = ""
     @State private var root = "~/.codex"
+    @State private var botmuxRoot = "~/.botmux/data"
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -21,6 +22,8 @@ struct RemoteConnectionsView: View {
             TextField("名称", text: $name).accessibilityLabel("远端名称")
             TextField("SSH 主机（user@host 或别名）", text: $host).accessibilityLabel("SSH 主机")
             TextField("远端 Codex 数据目录", text: $root).accessibilityLabel("远端 Codex 数据目录")
+            Text("远端 Botmux 数据目录").font(.system(size: 11)).foregroundStyle(.secondary)
+            TextField("远端 Botmux 数据目录", text: $botmuxRoot).accessibilityLabel("远端 Botmux 数据目录")
             Text("~ 表示远端用户主目录；每 30 秒同步，断线保留缓存。")
                 .font(.system(size: 11)).foregroundStyle(.secondary)
             HStack {
@@ -29,11 +32,12 @@ struct RemoteConnectionsView: View {
                     Button("取消编辑") { clearEditor() }
                 }
                 Button(editingID == nil ? "添加远端" : "保存修改") {
-                    model.saveRemoteTarget(id: editingID, name: name, host: host, root: root)
+                    model.saveRemoteTarget(
+                        id: editingID, name: name, host: host, root: root, botmuxRoot: botmuxRoot)
                 }
                 .disabled(
                     model.savingSourceConfiguration
-                        || [name, host, root].contains {
+                        || [name, host, root, botmuxRoot].contains {
                             $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                         })
             }
@@ -53,6 +57,7 @@ struct RemoteConnectionsView: View {
                 name = target.name
                 host = target.host
                 root = target.sessionRoot
+                botmuxRoot = target.botmuxRoot ?? "~/.botmux/data"
             }.disabled(model.savingSourceConfiguration)
             Button("移除") {
                 model.removeRemoteTarget(id: target.id)
@@ -66,5 +71,6 @@ struct RemoteConnectionsView: View {
         name = ""
         host = ""
         root = "~/.codex"
+        botmuxRoot = "~/.botmux/data"
     }
 }

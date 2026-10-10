@@ -29,8 +29,10 @@ final class RemoteSettingsTests: XCTestCase {
         XCTAssertEqual(target.sessionRoot, "/srv/custom-codex")
         XCTAssertFalse(model.sourceConfiguration.codexEnabled)
         XCTAssertNil(model.sourceConfiguration.codexHome)
-        model.saveRemoteTarget(id: target.id, name: "已编辑", host: "another", root: "~/custom")
+        model.saveRemoteTarget(
+            id: target.id, name: "已编辑", host: "another", root: "~/custom", botmuxRoot: "/custom/botmux")
         try await waitForSave(model)
+        XCTAssertEqual(model.sourceConfiguration.remoteTargets.first?.botmuxRoot, "/custom/botmux")
         XCTAssertEqual(model.sourceConfiguration.remoteTargets.count, 1)
         XCTAssertEqual(model.sourceConfiguration.remoteTargets.first?.host, "another")
         XCTAssertEqual(try store.configuration().remoteTargets.first?.sessionRoot, "~/custom")

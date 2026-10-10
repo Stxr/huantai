@@ -17,6 +17,7 @@ final class RemoteCodexProgramTests: XCTestCase {
             import pathlib, sqlite3, json
             root_arg = \(rootJSON)
             root = pathlib.Path(root_arg)
+            botmux_root_arg = str(root.parent / "botmux")
             (root / 'sessions').mkdir(parents=True)
             good = root / 'sessions' / 'good.jsonl'
             good.write_text(\(logJSON))
@@ -30,6 +31,17 @@ final class RemoteCodexProgramTests: XCTestCase {
                 db.execute('INSERT INTO threads VALUES (?, ?, ?, ?)', ('019f9d97-401f-7942-b6ba-4cda42ca604' + str(index), 'old title', '/workspace', str(path)))
             db.commit()
             db.close()
+            botmux = pathlib.Path(botmux_root_arg)
+            store = botmux / 'session-stores' / 'fixture'
+            store.mkdir(parents=True)
+            routes = sqlite3.connect(store / 'sessions.db')
+            routes.execute('CREATE TABLE sessions (row TEXT)')
+            routes.execute('INSERT INTO sessions VALUES (?)', (json.dumps(dict(cliId='codex', cliSessionId='019f9d97-401f-7942-b6ba-4cda42ca6040', scope='thread', chatId='oc_fixture', larkThreadId='omt_topic')),))
+            routes.execute('INSERT INTO sessions VALUES (?)', ('malformed',))
+            routes.commit()
+            routes.close()
+            (botmux / 'sessions-fixture.json').write_text(json.dumps([dict(cliSessionId='019f9d97-401f-7942-b6ba-4cda42ca6040', scope='chat', chatId='oc_stale')]))
+            (botmux / 'sessions.json').write_text(json.dumps(dict(chat=dict(cliId='codex', cliSessionId='019f9d97-401f-7942-b6ba-4cda42ca6041', scope='chat', chatId='oc_chat'))))
             (root / 'session_index.jsonl').write_text(json.dumps(dict(id='019f9d97-401f-7942-b6ba-4cda42ca6040', thread_name='Renamed task')) + '\\n')
             """
         let script = directory.appendingPathComponent("read.py")
@@ -50,6 +62,9 @@ final class RemoteCodexProgramTests: XCTestCase {
         XCTAssertEqual(rows[0].tokenUsage, SessionTokenUsageScanner.decodeTail(Data(tokenLog.utf8)))
         XCTAssertNil(rows[1].tokenUsage)
         XCTAssertNil(rows[1].lastAIReplyPreview)
-        XCTAssertNil(rows[0].openURL)
+        XCTAssertEqual(rows[0].source, "Botmux")
+        XCTAssertEqual(
+            rows[0].openURL, SourceOpening.feishuThreadURL(chatID: "oc_fixture", threadID: "omt_topic"))
+        XCTAssertEqual(rows[1].openURL, SourceOpening.feishuChatURL(chatID: "oc_chat"))
     }
 }

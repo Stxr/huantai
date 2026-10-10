@@ -252,9 +252,11 @@ public final class SessionStore: @unchecked Sendable {
                         } ?? SourceOpening.deepSeekHarnessURL
                     sessions[index].openUnavailableReason = nil
                 } else if sessions[index].id.hasPrefix("remote:") {
-                    sessions[index].openURL = preferences.openMappings[sessions[index].id].flatMap {
-                        Self.validatedOpenURL($0)
-                    }
+                    sessions[index].openURL =
+                        preferences.openMappings[sessions[index].id].flatMap {
+                            Self.validatedOpenURL($0)
+                        } ?? sessions[index].openURL.flatMap { Self.validatedOpenURL($0) }
+                    if sessions[index].openURL != nil { sessions[index].openUnavailableReason = nil }
                 } else if sessions[index].source != "Botmux" {
                     sessions[index].openURL =
                         preferences.openMappings[sessions[index].id]

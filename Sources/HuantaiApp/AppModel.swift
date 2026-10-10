@@ -219,11 +219,12 @@ final class AppModel: ObservableObject {
         updateSessionSources { try self.store.setSessionDirectory(source, path: path) }
     }
 
-    func saveRemoteTarget(id: String?, name: String, host: String, root: String) {
+    func saveRemoteTarget(id: String?, name: String, host: String, root: String, botmuxRoot: String? = nil) {
         let target = RemoteTarget(
             id: id ?? UUID().uuidString, name: name.trimmingCharacters(in: .whitespacesAndNewlines),
             host: host.trimmingCharacters(in: .whitespacesAndNewlines),
-            sessionRoot: root.trimmingCharacters(in: .whitespacesAndNewlines))
+            sessionRoot: root.trimmingCharacters(in: .whitespacesAndNewlines),
+            botmuxRoot: botmuxRoot?.trimmingCharacters(in: .whitespacesAndNewlines))
         updateSessionSources { try self.store.setRemoteTarget(target) }
     }
 

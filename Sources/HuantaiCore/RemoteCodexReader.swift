@@ -14,13 +14,18 @@ struct RemoteCodexReader {
             !target.sessionRoot.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }
             )
         else { throw HuantaiError.invalidConfiguration("请填写名称、有效 SSH 主机和 Codex 数据目录。") }
+        if let root = target.botmuxRoot {
+            guard root.count <= 4096, root.hasPrefix("/") || root == "~" || root.hasPrefix("~/"),
+                !root.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) })
+            else { throw HuantaiError.invalidConfiguration("Botmux 数据目录需为远端绝对路径或 ~/ 路径。") }
+        }
     }
 
     static func read(_ target: RemoteTarget) throws -> [SessionRecord] {
         try validate(target)
-        let input = try JSONEncoder().encode(target.sessionRoot).base64EncodedString()
+        let input = try JSONEncoder().encode(target).base64EncodedString()
         let program =
-            "import base64\nroot_arg = __import__('json').loads(base64.b64decode('\(input)'))\n"
+            "import base64\nargs = __import__('json').loads(base64.b64decode('\(input)'))\nroot_arg = args['sessionRoot']\nbotmux_root_arg = args.get('botmuxRoot') or '~/.botmux/data'\n"
             + RemoteCodexProgram.script
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(
@@ -82,16 +87,21 @@ struct RemoteCodexReader {
             var reply: Double?
             var preview: String?
             var tokenUsage: SessionTokenUsage?
+            var botmux: [RemoteBotmuxRoute]?
         }
         let rows = try JSONDecoder().decode([Row].self, from: data)
         var seen = Set<String>()
         return rows.filter { UUID(uuidString: $0.id) != nil && seen.insert($0.id).inserted }.map {
-            SessionRecord(
+            let routes = $0.botmux ?? []
+            let opening = RemoteBotmuxRoute.opening(routes)
+            return SessionRecord(
                 id: prefix(target) + $0.id, title: $0.title, cwd: $0.cwd,
-                source: "Codex", machine: target.name,
+                source: routes.isEmpty ? "Codex" : "Botmux", machine: target.name,
                 lastAIReplyAt: $0.reply.map { Date(timeIntervalSince1970: $0) },
                 lastAIReplyPreview: $0.preview.map { String($0.prefix(320)) },
-                openUnavailableReason: "远端会话请在 Codex 对应主机中打开，或通过 SSH 执行 codex resume \($0.id)。",
+                openURL: routes.isEmpty ? nil : opening.url,
+                openUnavailableReason: routes.isEmpty
+                    ? "远端会话请在 Codex 对应主机中打开，或通过 SSH 执行 codex resume \($0.id)。" : opening.reason,
                 tokenUsage: $0.tokenUsage)
         }
     }

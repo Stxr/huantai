@@ -21,7 +21,7 @@ final class RemoteCodexScanner: @unchecked Sendable {
 
     func scan(_ target: RemoteTarget, cached: [SessionRecord], wait: Bool = false) -> Result {
         lock.lock()
-        let key = RemoteCodexReader.prefix(target)
+        let key = RemoteCodexReader.prefix(target) + (target.botmuxRoot ?? "~/.botmux/data")
         var entry =
             entries[key]
             ?? Entry(
