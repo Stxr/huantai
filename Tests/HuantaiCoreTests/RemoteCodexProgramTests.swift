@@ -11,7 +11,9 @@ final class RemoteCodexProgramTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
         let root = directory.appendingPathComponent("codex 'quoted'")
         let tokenLog = SessionTokenUsageTests.sample() + "\n{\"type\":\"compacted\"}\n"
-        let rootJSON = String(data: try JSONEncoder().encode(root.path), encoding: .utf8)!
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let rootJSON = String(data: try encoder.encode(root.path), encoding: .utf8)!
         let logJSON = String(data: try JSONEncoder().encode(tokenLog), encoding: .utf8)!
         let setup = """
             import pathlib, sqlite3, json
