@@ -12,14 +12,16 @@ public struct SessionRecord: Codable, Identifiable, Sendable, Equatable {
     public var isCompleted: Bool
     public var openURL: String?
     public var openUnavailableReason: String?
+    public var tokenUsage: SessionTokenUsage?
 
     public init(
         id: String, title: String, cwd: String, source: String, machine: String,
         lastAIReplyAt: Date? = nil, lastAIReplyPreview: String? = nil, isFavorite: Bool = false,
         isCompleted: Bool = false,
         openURL: String? = nil,
-        openUnavailableReason: String? = nil
+        openUnavailableReason: String? = nil, tokenUsage: SessionTokenUsage? = nil
     ) {
+        self.tokenUsage = tokenUsage
         self.id = id
         self.title = title
         self.cwd = cwd
@@ -33,14 +35,19 @@ public struct SessionRecord: Codable, Identifiable, Sendable, Equatable {
         self.openUnavailableReason = openUnavailableReason
     }
 
+    public var nativeSessionID: String {
+        id.hasPrefix("remote:") ? String(id.split(separator: ":").last ?? "") : id
+    }
+
     private enum CodingKeys: String, CodingKey {
         case id, title, cwd, source, machine, lastAIReplyAt, lastAIReplyPreview, isFavorite, isCompleted,
             openURL,
-            openUnavailableReason
+            openUnavailableReason, tokenUsage
     }
 
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
+        tokenUsage = try values.decodeIfPresent(SessionTokenUsage.self, forKey: .tokenUsage)
         id = try values.decode(String.self, forKey: .id)
         title = try values.decode(String.self, forKey: .title)
         cwd = try values.decode(String.self, forKey: .cwd)

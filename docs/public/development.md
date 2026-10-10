@@ -66,3 +66,9 @@ HUANTAI_HOME="$PWD/.local/ui-fixture/state" \
 ## 公开内容
 
 源码、合成测试、开发/发布脚本及 `docs/public/` 属于公开项目。运行状态、数据库、日志、签名凭据、历史审阅文档和设计记录保留本地，不进入 Git 提交或发布包。公开提交使用 GitHub 的 noreply 地址。
+
+## 远端与单会话 Token
+
+`RemoteCodexReader` 以参数数组启动系统 SSH，将路径作为 Base64 JSON 传入固定 Python 只读程序；不把目录拼入 shell 命令。`RemoteCodexScanner` 合并并发读取、限制同步频率、保留断线缓存，网络请求在 Store 文件锁外执行。远端身份由主机和数据目录的 SHA-256 加原始线程 ID 组成，与显示名称、本机会话隔离。
+
+`SessionTokenUsageScanner` 与远端 Python 提取器复用 Codo 的统计语义：最新累计采样、压缩后上下文失效、未知不补零、最多 8 MiB 尾部扫描。测试通过合成 SQLite / JSONL 验证两端一致、目录逃逸、重命名标题、断线缓存及配置隔离，不依赖真实主机或账户。

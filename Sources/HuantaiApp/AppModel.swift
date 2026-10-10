@@ -219,6 +219,18 @@ final class AppModel: ObservableObject {
         updateSessionSources { try self.store.setSessionDirectory(source, path: path) }
     }
 
+    func saveRemoteTarget(id: String?, name: String, host: String, root: String) {
+        let target = RemoteTarget(
+            id: id ?? UUID().uuidString, name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+            host: host.trimmingCharacters(in: .whitespacesAndNewlines),
+            sessionRoot: root.trimmingCharacters(in: .whitespacesAndNewlines))
+        updateSessionSources { try self.store.setRemoteTarget(target) }
+    }
+
+    func removeRemoteTarget(id: String) {
+        updateSessionSources { try self.store.removeRemoteTarget(id: id) }
+    }
+
     func chooseSessionDirectory(_ source: SessionSource) {
         let panel = NSOpenPanel()
         panel.title = "选择 \(source.title) 数据目录"

@@ -19,11 +19,13 @@ let help = """
       ht config
       ht config map <ID> <已支持的 Codex、飞书链接或 dsh://open>
       ht config remote-add <名称> <user@host> [会话根目录]
+      ht config remote-remove <名称>
+      ht config remote-sync
 
     收藏、完成状态与索引保存在 HUANTAI_HOME 或 ~/Library/Application Support/huantai。
     默认只展示未完成会话；--completed 查看已完成，--include-completed 查看全部。
     来源默认全部本机会话；按 AI 最后一条可见回复（含进度）倒序，无回复排末尾。
-    远端只保存明确目标配置，首版不会自动运行 SSH。来源链接使用已核验的原生协议。
+    远端通过明确配置的 SSH 主机只读同步；需要免交互登录与 python3。来源链接使用已核验的原生协议。
     """
 
 func writeJSON<T: Encodable>(_ value: T) throws {
@@ -143,7 +145,7 @@ func run() throws {
         }
     case "refresh":
         guard args.isEmpty else { throw HuantaiError.invalidConfiguration("用法：ht refresh [--json]") }
-        let snapshot = try store.refresh()
+        let snapshot = try store.refreshRemotes()
         if json {
             try writeJSON(snapshot)
         } else {
@@ -246,7 +248,7 @@ func run() throws {
                 print("本地只读来源：\(store.codexDirectory.path)")
                 let targets = try store.configuration().remoteTargets
                 if targets.isEmpty { print("远端目标未配置。") }
-                for target in targets { print("\(target.name)：\(target.host) · \(target.sessionRoot)（未连接）") }
+                for target in targets { print("\(target.name)：\(target.host) · \(target.sessionRoot)") }
             }
         } else if args.first == "map" {
             guard args.count == 3 else {
@@ -255,6 +257,22 @@ func run() throws {
             let session = try chooseSession(args[1], from: store.snapshot())
             try store.setOpenMapping(id: session.id, url: args[2])
             print("已保存打开映射 \(session.id)")
+        } else if args.first == "remote-sync", args.count == 1 {
+            let snapshot = try store.refreshRemotes()
+            if json {
+                try writeJSON(snapshot)
+            } else {
+                for source in snapshot.sources { print("\(source.name)：\(source.status)") }
+            }
+        } else if args.first == "remote-remove", args.count == 2 {
+            let targets = try store.configuration().remoteTargets.filter {
+                $0.name == args[1] || $0.id == args[1]
+            }
+            guard targets.count == 1, let target = targets.first else {
+                throw HuantaiError.invalidConfiguration("远端名称不唯一或不存在，请指定配置 ID。")
+            }
+            try store.removeRemoteTarget(id: target.id)
+            print("已移除远端目标。")
         } else if args.first == "remote-add" {
             guard args.count == 3 || args.count == 4 else {
                 throw HuantaiError.invalidConfiguration("用法：ht config remote-add <名称> <user@host> [根目录]")
@@ -263,7 +281,7 @@ func run() throws {
                 id: "ssh-" + args[1], name: args[1], host: args[2],
                 sessionRoot: args.count == 4 ? args[3] : "~/.codex")
             try store.setRemoteTarget(target)
-            print("已保存明确远端目标；未执行 SSH。")
+            print("已保存远端目标；App 将后台同步，可运行 ht config remote-sync 立即同步。")
         } else {
             throw HuantaiError.invalidConfiguration("未知配置命令。使用 ht --help 查看命令。")
         }

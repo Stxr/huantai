@@ -683,9 +683,10 @@ final class CoreTests: XCTestCase {
         XCTAssertNil(snapshot.sessions.first?.openURL)
     }
 
-    func testUnconfiguredSourceAndExplicitRemoteNeverConnect() throws {
+    func testUnconfiguredSourceDoesNotConnectAndExplicitRemoteReportsFailure() throws {
         try FileManager.default.removeItem(at: codex.appendingPathComponent("state_5.sqlite"))
         let instance = store()
+        instance.remoteScanner = RemoteCodexScanner { _ in throw HuantaiError.sourceUnavailable("测试断线") }
         try instance.setRemoteTarget(RemoteTarget(id: "remote", name: "测试远端", host: "nobody@invalid.example"))
         let snapshot = try instance.refresh()
         XCTAssertTrue(snapshot.sessions.isEmpty)
