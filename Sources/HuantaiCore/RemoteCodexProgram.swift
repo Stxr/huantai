@@ -7,9 +7,10 @@ enum RemoteCodexProgram {
             dbs = [p for p in home.glob('state_*.sqlite') if p.stem[6:].isdigit()]
             if not dbs: raise RuntimeError('Codex index missing')
             db = max(dbs, key=lambda p: int(p.stem[6:]))
+            if db.is_symlink(): raise RuntimeError('Codex index is a symlink')
             c = sqlite3.connect(db.as_uri() + '?mode=ro', uri=True, timeout=3)
             c.row_factory = sqlite3.Row
-            allowed = [(home / name).resolve() for name in ('sessions', 'archived_sessions')]
+            allowed = [home / name for name in ('sessions', 'archived_sessions')]
 
             def tail_lines(path):
                 with path.open('rb') as f:
