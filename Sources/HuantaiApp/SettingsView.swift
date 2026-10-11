@@ -26,11 +26,11 @@ struct SettingsView: View {
 
     private var content: some View {
         VStack(alignment: .leading, spacing: 28) {
-            startup
+            shortcuts
             general
             taskHooks
-            shortcuts
             connections
+            syncStatus
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 20)
@@ -64,7 +64,8 @@ struct SettingsView: View {
 
     private var general: some View {
         VStack(alignment: .leading, spacing: 16) {
-            sectionHeading("外观", subtitle: "主题与菜单栏图标，即刻生效。")
+            sectionHeading("通用与外观", subtitle: "登录启动、主题和菜单栏显示。")
+            card(padding: 0) { LoginItemSettingView(manager: model.loginItem) }
             card {
                 HStack(spacing: 10) {
                     themeOption("system", title: "跟随系统", symbol: "desktopcomputer")
@@ -84,13 +85,6 @@ struct SettingsView: View {
                     }
                 }
             }
-        }
-    }
-
-    private var startup: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            sectionHeading("通用", subtitle: "让换台随登录自动运行。")
-            card(padding: 0) { LoginItemSettingView(manager: model.loginItem) }
         }
     }
 
@@ -162,32 +156,20 @@ struct SettingsView: View {
 
     private var shortcuts: some View {
         VStack(alignment: .leading, spacing: 16) {
-            sectionHeading("全局快捷键", subtitle: "点击键位录入新组合，在其他应用中也能使用。")
-            card(padding: 0) { shortcutRow(.showPopover) }
-            Text("按一次打开，再按一次关闭；保留当前页面。")
-                .font(.system(size: 11)).foregroundStyle(.secondary)
-            card(padding: 0) { shortcutRow(.completeCurrent) }
-            Text("通过换台成功打开会话后 15 秒内，标记当前任务完成并打开下一条。已完成任务会从默认列表隐藏，可在列表状态筛选中查看并恢复。")
-                .font(.system(size: 11)).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            card(padding: 0) { shortcutRow(.undoCompletion) }
-            Text("撤回本次运行中最近一次完成，并返回该会话；连续按可依次撤回，不受 15 秒限制。")
-                .font(.system(size: 11)).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            sectionHeading("快捷键", subtitle: "点击右侧键位修改，在其他应用中也能使用。")
+            card(padding: 0) {
+                VStack(spacing: 0) {
+                    shortcutGroup("打开换台", actions: [.showPopover])
+                    Divider().padding(.horizontal, 14)
+                    shortcutGroup("切换会话", actions: ShortcutAction.navigationActions)
+                    Divider().padding(.horizontal, 14)
+                    shortcutGroup("完成与撤回", actions: [.completeCurrent, .undoCompletion])
+                }
+            }
             if let warning = model.shortcutMigrationWarning {
                 Label(warning, systemImage: "exclamationmark.triangle")
                     .font(.system(size: 11)).foregroundStyle(.orange)
                     .fixedSize(horizontal: false, vertical: true)
-            }
-            card(padding: 0) {
-                VStack(spacing: 0) {
-                    ForEach(ShortcutAction.navigationActions, id: \.self) { action in
-                        shortcutRow(action)
-                        if action != ShortcutAction.navigationActions.last {
-                            Divider().padding(.horizontal, 14)
-                        }
-                    }
-                }
             }
             HStack(alignment: .top, spacing: 8) {
                 Image(systemName: model.recordingAction == nil ? "info.circle" : "keyboard")
@@ -207,14 +189,27 @@ struct SettingsView: View {
                 }
             }
             .controlSize(.small)
-            card {
+            DisclosureGroup("快捷键使用说明") {
                 VStack(alignment: .leading, spacing: 8) {
-                    Label("像 IDE 一样前后跳转", systemImage: "arrow.uturn.backward")
-                        .font(.system(size: 12, weight: .medium))
-                    Text("上下切换与回到第一项沿用当前排序和筛选。后退、前进记住通过换台打开的会话；从第七项跳到第一项后，后退即可返回第七项。")
-                        .font(.system(size: 11)).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    Text("浮窗开关：按一次打开，再按一次关闭，保留当前页面。")
+                    Text("切换会话：沿用当前排序和筛选；后退、前进返回通过换台打开过的会话。")
+                    Text("完成：成功打开会话后 15 秒内可用，完成后切换下一条。已完成任务可在列表筛选中查看。")
+                    Text("撤回：恢复本次运行中最近完成的任务并返回该会话，可连续撤回，不受 15 秒限制。")
                 }
+                .font(.system(size: 11)).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 8)
+            }
+            .font(.system(size: 11)).foregroundStyle(.secondary)
+        }
+    }
+
+    private func shortcutGroup(_ title: String, actions: [ShortcutAction]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(title).font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
+                .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 2)
+            ForEach(actions, id: \.self) { action in
+                shortcutRow(action)
             }
         }
     }
@@ -250,7 +245,7 @@ struct SettingsView: View {
 
     private var connections: some View {
         VStack(alignment: .leading, spacing: 16) {
-            sectionHeading("连接与数据", subtitle: "查看来源状态，管理数据更新。")
+            sectionHeading("会话来源", subtitle: "管理本机目录和远端 SSH 连接。")
             card(padding: 0) {
                 VStack(spacing: 0) {
                     ForEach(SessionSource.allCases, id: \.self) { source in
@@ -259,10 +254,22 @@ struct SettingsView: View {
                     }
                 }
             }
-            card { RemoteConnectionsView(model: model) }
-            Text("默认同时读取 Codex 和官方 DeepSeek Harness。选择各自数据主目录；DeepSeek Harness 默认 ~/.dsh。")
+            Text("本机来源独立开关；目录修改后自动刷新。")
                 .font(.system(size: 11)).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            card {
+                DisclosureGroup("远端 Codex") {
+                    RemoteConnectionsView(model: model, showsHeading: false).padding(.top, 12)
+                }
+                .font(.system(size: 12, weight: .medium))
+            }
+        }
+        .controlSize(.small)
+    }
+
+    private var syncStatus: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            sectionHeading("同步与状态", subtitle: "查看连接状态，手动更新会话和额度。")
             card(padding: 0) {
                 VStack(spacing: 0) {
                     if model.snapshot.sources.isEmpty {
@@ -295,7 +302,7 @@ struct SettingsView: View {
                         Label("会话同步", systemImage: "arrow.triangle.2.circlepath")
                             .font(.system(size: 12, weight: .medium))
                         Spacer()
-                        Text("每 5 秒").font(.system(size: 11, weight: .medium)).foregroundStyle(
+                        Text("本机 5 秒 · 远端 30 秒").font(.system(size: 11, weight: .medium)).foregroundStyle(
                             Color.accentColor)
                     }
                     HStack {

@@ -14,7 +14,7 @@ struct RemoteCodexReader {
             !target.sessionRoot.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }
             )
         else { throw HuantaiError.invalidConfiguration("请填写名称、有效 SSH 主机和 Codex 数据目录。") }
-        if let root = target.botmuxRoot {
+        if target.botmuxEnabled, let root = target.botmuxRoot {
             guard root.count <= 4096, root.hasPrefix("/") || root == "~" || root.hasPrefix("~/"),
                 !root.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) })
             else { throw HuantaiError.invalidConfiguration("Botmux 数据目录需为远端绝对路径或 ~/ 路径。") }
@@ -25,7 +25,7 @@ struct RemoteCodexReader {
         try validate(target)
         let input = try JSONEncoder().encode(target).base64EncodedString()
         let program =
-            "import base64\nargs = __import__('json').loads(base64.b64decode('\(input)'))\nroot_arg = args['sessionRoot']\nbotmux_root_arg = args.get('botmuxRoot') or '~/.botmux/data'\n"
+            "import base64\nargs = __import__('json').loads(base64.b64decode('\(input)'))\nroot_arg = args['sessionRoot']\nbotmux_root_arg = (args.get('botmuxRoot') or '~/.botmux/data') if args['botmuxEnabled'] else None\n"
             + RemoteCodexProgram.script
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(
@@ -71,6 +71,15 @@ struct RemoteCodexReader {
         return try decode(output, target: target)
     }
 
+    static func applyingBotmuxPreference(_ session: SessionRecord, target: RemoteTarget) -> SessionRecord {
+        guard !target.botmuxEnabled else { return session }
+        var value = session
+        value.source = "Codex"
+        value.openURL = nil
+        value.openUnavailableReason = "远端会话请在 Codex 对应主机中打开，或通过 SSH 执行 codex resume \(value.nativeSessionID)。"
+        return value
+    }
+
     static func prefix(_ target: RemoteTarget) -> String {
         // Host and root form the identity; renaming a target never transfers task state to another host.
         let identity = SHA256.hash(data: Data((target.host + "\n" + target.sessionRoot).utf8)).map {
@@ -92,7 +101,7 @@ struct RemoteCodexReader {
         let rows = try JSONDecoder().decode([Row].self, from: data)
         var seen = Set<String>()
         return rows.filter { UUID(uuidString: $0.id) != nil && seen.insert($0.id).inserted }.map {
-            let routes = $0.botmux ?? []
+            let routes = target.botmuxEnabled ? ($0.botmux ?? []) : []
             let opening = RemoteBotmuxRoute.opening(routes)
             return SessionRecord(
                 id: prefix(target) + $0.id, title: $0.title, cwd: $0.cwd,

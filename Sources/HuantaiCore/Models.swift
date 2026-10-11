@@ -170,14 +170,32 @@ public struct RemoteTarget: Codable, Identifiable, Sendable, Equatable {
     public var host: String
     public var sessionRoot: String
     public var botmuxRoot: String?
+    public var botmuxEnabled: Bool
     public init(
-        id: String, name: String, host: String, sessionRoot: String = "~/.codex", botmuxRoot: String? = nil
+        id: String, name: String, host: String, sessionRoot: String = "~/.codex", botmuxRoot: String? = nil,
+        botmuxEnabled: Bool? = nil
     ) {
         self.id = id
         self.name = name
         self.host = host
         self.sessionRoot = sessionRoot
         self.botmuxRoot = botmuxRoot
+        self.botmuxEnabled = botmuxEnabled ?? (botmuxRoot != nil)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, host, sessionRoot, botmuxRoot, botmuxEnabled
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(String.self, forKey: .id)
+        name = try values.decode(String.self, forKey: .name)
+        host = try values.decode(String.self, forKey: .host)
+        sessionRoot = try values.decode(String.self, forKey: .sessionRoot)
+        botmuxRoot = try values.decodeIfPresent(String.self, forKey: .botmuxRoot)
+        // Existing saved targets previously always read Botmux, including its default directory.
+        botmuxEnabled = try values.decodeIfPresent(Bool.self, forKey: .botmuxEnabled) ?? true
     }
 }
 

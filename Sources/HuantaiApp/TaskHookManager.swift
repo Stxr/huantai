@@ -43,7 +43,7 @@ struct TaskHookSettingView: View {
             .background(Color.secondary.opacity(0.055), in: RoundedRectangle(cornerRadius: 14))
             .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.secondary.opacity(0.13)))
             if manager.enabled {
-                Text("支持范围跟随“连接与数据”的勾选；取消勾选会移除对应 Hook。换台运行时播放音效。Codex 若提示需要信任，可在 /hooks 中审阅。")
+                Text("支持范围跟随“会话来源”的勾选；取消勾选会移除对应 Hook。换台运行时播放音效。Codex 若提示需要信任，可在 /hooks 中审阅。")
                     .font(.system(size: 11)).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }

@@ -3,16 +3,20 @@ import SwiftUI
 
 struct RemoteConnectionsView: View {
     @ObservedObject var model: AppModel
+    var showsHeading = true
     @State private var editingID: String?
     @State private var name = ""
     @State private var host = ""
     @State private var root = "~/.codex"
+    @State private var botmuxEnabled = false
     @State private var botmuxRoot = "~/.botmux/data"
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("远端 Codex", systemImage: "network")
-                .font(.system(size: 12, weight: .medium))
+            if showsHeading {
+                Label("远端 Codex", systemImage: "network")
+                    .font(.system(size: 12, weight: .medium))
+            }
             Text("独立于本机来源，通过 SSH 只读同步。主机可填写 SSH 配置别名或 user@host；远端需有 python3，并支持免交互登录。")
                 .font(.system(size: 11)).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -22,8 +26,12 @@ struct RemoteConnectionsView: View {
             TextField("名称", text: $name).accessibilityLabel("远端名称")
             TextField("SSH 主机（user@host 或别名）", text: $host).accessibilityLabel("SSH 主机")
             TextField("远端 Codex 数据目录", text: $root).accessibilityLabel("远端 Codex 数据目录")
-            Text("远端 Botmux 数据目录").font(.system(size: 11)).foregroundStyle(.secondary)
-            TextField("远端 Botmux 数据目录", text: $botmuxRoot).accessibilityLabel("远端 Botmux 数据目录")
+            Toggle("此远端使用 Botmux", isOn: $botmuxEnabled)
+                .toggleStyle(.switch).font(.system(size: 12))
+            if botmuxEnabled {
+                Text("远端 Botmux 数据目录").font(.system(size: 11)).foregroundStyle(.secondary)
+                TextField("远端 Botmux 数据目录", text: $botmuxRoot).accessibilityLabel("远端 Botmux 数据目录")
+            }
             Text("~ 表示远端用户主目录；每 30 秒同步，断线保留缓存。")
                 .font(.system(size: 11)).foregroundStyle(.secondary)
             HStack {
@@ -33,11 +41,12 @@ struct RemoteConnectionsView: View {
                 }
                 Button(editingID == nil ? "添加远端" : "保存修改") {
                     model.saveRemoteTarget(
-                        id: editingID, name: name, host: host, root: root, botmuxRoot: botmuxRoot)
+                        id: editingID, name: name, host: host, root: root, botmuxRoot: botmuxRoot,
+                        botmuxEnabled: botmuxEnabled)
                 }
                 .disabled(
                     model.savingSourceConfiguration
-                        || [name, host, root, botmuxRoot].contains {
+                        || ([name, host, root] + (botmuxEnabled ? [botmuxRoot] : [])).contains {
                             $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                         })
             }
@@ -57,6 +66,7 @@ struct RemoteConnectionsView: View {
                 name = target.name
                 host = target.host
                 root = target.sessionRoot
+                botmuxEnabled = target.botmuxEnabled
                 botmuxRoot = target.botmuxRoot ?? "~/.botmux/data"
             }.disabled(model.savingSourceConfiguration)
             Button("移除") {
@@ -72,5 +82,6 @@ struct RemoteConnectionsView: View {
         host = ""
         root = "~/.codex"
         botmuxRoot = "~/.botmux/data"
+        botmuxEnabled = false
     }
 }

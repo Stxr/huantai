@@ -90,7 +90,7 @@ enum RemoteCodexProgram {
                 except OSError: pass
                 return titles
 
-            routes = botmux_routes(botmux_root_arg)
+            routes = botmux_routes(botmux_root_arg) if botmux_root_arg is not None else {}
             titles = display_titles()
             rows = []
             for row in c.execute('SELECT id, title, cwd, rollout_path FROM threads'):

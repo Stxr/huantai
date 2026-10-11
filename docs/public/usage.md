@@ -4,7 +4,7 @@
 
 启动后点击菜单栏图标打开浮窗，点击标题在已安装的 Codex 或飞书客户端中打开对应会话；DeepSeek Harness 会话直接唤起官方应用。搜索支持标题和目录；星标筛选收藏项，完成状态筛选查看已完成项。收藏和鼠标完成不会自动打开下一会话。
 
-默认同时读取 Codex 与 [官方 DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness/blob/master/README.zh.md)。设置 → 连接与数据可分别开关来源、选择数据主目录或恢复默认目录。Codex 默认 `~/.codex`，DeepSeek Harness 默认 `~/.dsh`；配置保存后立即刷新，重启继续沿用。关闭来源不会清除收藏或完成状态；更换目录不会继承旧目录的缓存记录。
+默认同时读取 Codex 与 [官方 DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness/blob/master/README.zh.md)。设置 → 会话来源可分别开关来源、选择数据主目录或恢复默认目录。Codex 默认 `~/.codex`，DeepSeek Harness 默认 `~/.dsh`；配置保存后立即刷新，重启继续沿用。关闭来源不会清除收藏或完成状态；更换目录不会继承旧目录的缓存记录。
 
 DeepSeek Harness 从 `sessions/<项目>/<会话>/session[.vN].jsonl[.zstd]` 读取标题、目录及真实可见 AI 回复，按回复事件的毫秒时间排序，与 Codex 共用列表、收藏和完成状态。压缩读取可使用 Node.js 24+、本机官方桌面客户端的运行时或已安装的 zstd。当前核验的格式为 v0 至 v4，未知代际和不可读记录会提示，不以旧代际冒充当前记录。打开或切换 DeepSeek Harness 会话时，换台直接唤起官方应用；撤回完成也会返回应用。具体会话需在应用内选择，Toast 显示“已打开 DeepSeek Harness”。应用打开成功后可以使用15秒内的完成快捷键，完成/撤回针对换台中选中的会话记录。
 
@@ -16,11 +16,11 @@ DeepSeek Harness 从 `sessions/<项目>/<会话>/session[.vN].jsonl[.zstd]` 读�
 
 ## 远端 Codex 与会话用量
 
-设置 → 连接与数据 → 远端 Codex 中填写名称、SSH 主机（配置别名或 `user@host`）和远端 Codex 数据目录，然后添加。已有目标支持编辑和移除；`~/.codex` 中的 `~` 在远端展开，也可以填写绝对路径。远端配置不依赖本机 Codex 开关或数据目录，不会自动发现主机。
+设置 → 会话来源 → 远端 Codex 中填写名称、SSH 主机（配置别名或 `user@host`）和远端 Codex 数据目录，然后添加。已有目标支持编辑和移除；`~/.codex` 中的 `~` 在远端展开，也可以填写绝对路径。远端配置不依赖本机 Codex 开关或数据目录，不会自动发现主机。
 
 连接使用系统 SSH 配置，需预先完成主机指纹确认并能免交互登录；远端需安装 Python 3。App 每 30 秒后台只读同步，单次读取最多等待 20 秒，不阻塞本机会话刷新。断线时保留上次缓存并显示状态；移除目标后，其会话从列表移除。相同会话 ID 在不同主机或数据目录中独立保存收藏、完成状态。
 
-远端 Botmux 会话读取远端 Botmux 数据目录（默认 `~/.botmux/data`，可在同一设置中修改），通过 `cliSessionId` 关联并标记为 Botmux。点击标题按聊天/话题元数据打开飞书；兼容 SQLite 会话库及旧 JSON 存储，同一存储优先 SQLite。缺少有效 ID 或关联多个不同目标时提示配置来源链接，不从标题猜测，也不把缺失话题链接降级为群聊。
+每个远端可独立开启「此远端使用 Botmux」，新建时默认关闭；开启后才显示并要求填写 Botmux 数据目录（默认 `~/.botmux/data`）。关闭时只读取 Codex，不读取 Botmux，并移除缓存中的自动飞书路由，显式设置的来源链接继续保留。已有配置保留原来的启用行为。远端 Botmux 会话读取所配置的数据目录，通过 `cliSessionId` 关联并标记为 Botmux。点击标题按聊天/话题元数据打开飞书；兼容 SQLite 会话库及旧 JSON 存储，同一存储优先 SQLite。缺少有效 ID 或关联多个不同目标时提示配置来源链接，不从标题猜测，也不把缺失话题链接降级为群聊。
 
 其他远端会话默认不生成本机 Codex 跳转链接；请在 Codex 对应主机中打开，或登录远端执行 `codex resume <原始会话 ID>`。也可右键设置已核验的来源链接。
 
@@ -30,7 +30,7 @@ DeepSeek Harness 从 `sessions/<项目>/<会话>/session[.vN].jsonl[.zstd]` 读�
 
 ## 菜单栏与额度
 
-设置 → 外观 → 菜单栏图标提供三种显示：
+设置 → 通用与外观 → 菜单栏图标提供三种显示：
 
 - 每日建议剩余：按照自然日的建议量归一化，未用额度可结转，数字可超过100%。圆环最多画满一圈；超过100%蓝色，10%至100%绿色，低于10%红色。
 - 每周剩余：绿色表示周剩余，红色表示超过当日参考的已消耗额度，外侧参考点标示截至当日结束建议保留的周额度。
@@ -42,11 +42,13 @@ DeepSeek Harness 从 `sessions/<项目>/<会话>/session[.vN].jsonl[.zstd]` 读�
 
 ## 设置与登录启动
 
+设置为单页连续滚动，依次为快捷键、通用与外观、任务音效、会话来源、同步与状态。全部快捷键集中在同一卡片中，按打开换台、切换会话、完成与撤回分组；使用说明和远端配置可按需展开。
+
 通过齿轮或换台激活时的 `⌘,` 进入设置。设置和列表共用当前浮窗，返回按钮或 Esc 回到列表；录入快捷键时，Esc 先取消录入。
 
-设置 → 通用 → 开机运行，点击整行注册或取消 macOS 登录启动。登录 Mac 后 App 仅驻菜单栏。待系统允许时，设置会显示对应提示和「打开登录项设置」入口；系统中的实际状态是开关依据。
+设置 → 通用与外观 → 开机运行，点击整行注册或取消 macOS 登录启动。登录 Mac 后 App 仅驻菜单栏。待系统允许时，设置会显示对应提示和「打开登录项设置」入口；系统中的实际状态是开关依据。
 
-设置 → 任务音效 → 启用任务 Hook，默认关闭。开启后，换台运行时为本机 Codex 和 DeepSeek Harness 的任务开始、完成和失败播放提示音，两个来源共用同一个音效文件夹。支持范围跟随“连接与数据”的勾选：勾选来源会安装对应 Hook，取消勾选会移除它并停止对应提醒；切换数据目录也会迁移 Hook。音效总开关关闭时，勾选来源仍可读取会话，不会安装 Hook。
+设置 → 任务音效 → 启用任务 Hook，默认关闭。开启后，换台运行时为本机 Codex 和 DeepSeek Harness 的任务开始、完成和失败播放提示音，两个来源共用同一个音效文件夹。支持范围跟随“会话来源”的勾选：勾选来源会安装对应 Hook，取消勾选会移除它并停止对应提醒；切换数据目录也会迁移 Hook。音效总开关关闭时，勾选来源仍可读取会话，不会安装 Hook。
 
 已有的其他 Hook 和 DeepSeek Harness 用户设置会保留，关闭时只移除换台条目。Codex 新会话会加载 Hook，如提示需要信任，可在 `/hooks` 中审阅。DeepSeek Harness 使用官方 CLI / 桌面客户端共享的数据主目录；插件随配置热加载，启动时加载配置的 profile 在下次启动时生效。手动中断、历史中断修复和普通工具报错不播放失败音效。
 
@@ -56,6 +58,7 @@ DeepSeek Harness 从 `sessions/<项目>/<会话>/session[.vN].jsonl[.zstd]` 读�
 
 ```bash
 ht config remote-add build-box user@example '~/.codex'
+ht config remote-add bot-box user@example '~/.codex' '~/.botmux/data' # 指定目录即启用 Botmux
 ht config remote-sync             # 等待远端同步并显示状态
 ht config remote-remove build-box
 ht list

@@ -21,7 +21,9 @@ final class RemoteCodexScanner: @unchecked Sendable {
 
     func scan(_ target: RemoteTarget, cached: [SessionRecord], wait: Bool = false) -> Result {
         lock.lock()
-        let key = RemoteCodexReader.prefix(target) + (target.botmuxRoot ?? "~/.botmux/data")
+        let key =
+            RemoteCodexReader.prefix(target)
+            + (target.botmuxEnabled ? "enabled:" + (target.botmuxRoot ?? "~/.botmux/data") : "disabled")
         var entry =
             entries[key]
             ?? Entry(
@@ -59,7 +61,11 @@ final class RemoteCodexScanner: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         var result = entries[key]?.result ?? entry.result
-        for index in result.sessions.indices { result.sessions[index].machine = target.name }
+        for index in result.sessions.indices {
+            result.sessions[index] = RemoteCodexReader.applyingBotmuxPreference(
+                result.sessions[index], target: target)
+            result.sessions[index].machine = target.name
+        }
         return result
     }
 }

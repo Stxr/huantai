@@ -120,7 +120,8 @@ final class RemoteCodexProgramTests: XCTestCase {
         let output = pipe.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
         XCTAssertEqual(process.terminationStatus, 0)
-        let target = RemoteTarget(id: "fixture", name: "合成远端", host: "example", sessionRoot: root.path)
+        let target = RemoteTarget(
+            id: "fixture", name: "合成远端", host: "example", sessionRoot: root.path, botmuxEnabled: true)
         let rows = try RemoteCodexReader.decode(output, target: target)
         XCTAssertEqual(rows.count, 2)
         XCTAssertEqual(rows[0].title, "Renamed task")
@@ -131,5 +132,15 @@ final class RemoteCodexProgramTests: XCTestCase {
         XCTAssertEqual(
             rows[0].openURL, SourceOpening.feishuThreadURL(chatID: "oc_fixture", threadID: "omt_topic"))
         XCTAssertEqual(rows[1].openURL, SourceOpening.feishuChatURL(chatID: "oc_chat"))
+        let disabledSetup = """
+            root_arg = \(rootJSON)
+            botmux_root_arg = None
+            """
+        let (disabledStatus, disabledOutput) = try runProgram(setup: disabledSetup, in: directory)
+        XCTAssertEqual(disabledStatus, 0)
+        let disabledRows = try RemoteCodexReader.decode(disabledOutput, target: target)
+        XCTAssertEqual(disabledRows.count, rows.count)
+        XCTAssertTrue(disabledRows.allSatisfy { $0.source == "Codex" && $0.openURL == nil })
+        XCTAssertEqual(disabledRows[0].tokenUsage, rows[0].tokenUsage)
     }
 }

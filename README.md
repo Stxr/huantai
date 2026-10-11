@@ -6,7 +6,7 @@
 
 Codex / Botmux 会话管理 · 彩色额度圆环 · 全局快捷键 · 原生 SwiftUI
 
-<img src="docs/public/images/platforms.svg" alt="macOS 14+ · Apple Silicon ARM64 · Swift 6 · v0.2.0" width="460">
+<img src="docs/public/images/platforms.svg" alt="macOS 14+ · Apple Silicon ARM64 · Swift 6 · v0.2.3" width="460">
 
 <br><br>
 
@@ -44,9 +44,9 @@ Codex / Botmux 会话管理 · 彩色额度圆环 · 全局快捷键 · 原生 S
 
 切换会话后，屏幕角落的 Toast 显示当前位置，不抢焦点。在成功打开后的 **15 秒内**按 `⌘⇧D`，就能完成当前任务并进入下一项。按 `⌘⇧Z` 撤回最近一次完成并返回该会话，可连续撤回，不受15秒限制。鼠标点击收藏或完成只修改状态。
 
-设置 → 连接与数据可分别开关 Codex 与 [官方 DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)，并选择数据目录。DeepSeek Harness 默认读取 `~/.dsh`，支持普通和 Zstandard 压缩会话；点击或切换其会话会直接打开官方应用，撤回完成也会返回应用，具体会话需在应用内选择。
+设置 → 会话来源可分别开关 Codex 与 [官方 DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)，并选择数据目录。DeepSeek Harness 默认读取 `~/.dsh`，支持普通和 Zstandard 压缩会话；点击或切换其会话会直接打开官方应用，撤回完成也会返回应用，具体会话需在应用内选择。
 
-设置 → 连接与数据 → 远端 Codex 支持添加、编辑和移除 SSH 主机，远端目录与本机来源独立。会话列表同时展示累计 Token、上下文与窗口占用；统计口径与连接条件见[使用指南](docs/public/usage.md#远端-codex-与会话用量)。
+设置 → 会话来源 → 远端 Codex 支持添加、编辑和移除 SSH 主机，远端目录与本机来源独立。会话列表同时展示累计 Token、上下文与窗口占用；统计口径与连接条件见[使用指南](docs/public/usage.md#远端-codex-与会话用量)。
 
 ## 让额度变得直观
 
@@ -71,7 +71,7 @@ Codex / Botmux 会话管理 · 彩色额度圆环 · 全局快捷键 · 原生 S
 
 一个连续滚动的设置页，集中调整登录启动、系统 / 浅色 / 深色主题、菜单栏图标与快捷键。开机运行和图标选项使用统一的勾选样式，选择后即刻生效。
 
-可选的任务音效默认关闭，开启后支持 Codex 和 DeepSeek Harness，按“连接与数据”勾选的来源安装 Hook，取消勾选时移除对应 Hook。任务开始、完成或失败时播放红警 EVA 提示音。设置里提供音效文件夹入口，直接替换 `started`、`completed`、`failed` 对应音频即可，无需重启。详情见[使用指南](docs/public/usage.md#设置与登录启动)。
+可选的任务音效默认关闭，开启后支持 Codex 和 DeepSeek Harness，按“会话来源”勾选的来源安装 Hook，取消勾选时移除对应 Hook。任务开始、完成或失败时播放红警 EVA 提示音。设置里提供音效文件夹入口，直接替换 `started`、`completed`、`failed` 对应音频即可，无需重启。详情见[使用指南](docs/public/usage.md#设置与登录启动)。
 
 | 默认快捷键 | 动作 |
 | --- | --- |
@@ -86,7 +86,7 @@ Codex / Botmux 会话管理 · 彩色额度圆环 · 全局快捷键 · 原生 S
 
 支持 **Apple Silicon（ARM64）与 macOS 14 及以上**。
 
-1. 从 [Releases](https://github.com/Stxr/huantai/releases/latest) 下载 `huantai-v0.2.0-macos-arm64.dmg`。
+1. 从 [Releases](https://github.com/Stxr/huantai/releases/latest) 下载 `huantai-v0.2.3-macos-arm64.dmg`。
 2. 打开 DMG，将「换台.app」拖入 Applications 并运行。
 3. 点击菜单栏圆环，或按 `⌘⌥,` 开始换台。
 
@@ -136,7 +136,7 @@ Swift + AppKit + SwiftUI，没有第三方 Swift 包依赖，SQLite 使用系统
 ```bash
 ./scripts/test.sh
 xcrun swift-format lint --strict --recursive Package.swift Sources Tests
-./scripts/release.sh v0.2.0
+./scripts/release.sh v0.2.3
 ```
 
 发布脚本只构建 ARM64，输出 DMG、CLI 压缩包与 SHA-256 校验文件到 `dist/`。运行数据、构建缓存、账户日志及内部审阅记录不进入仓库或发布包。

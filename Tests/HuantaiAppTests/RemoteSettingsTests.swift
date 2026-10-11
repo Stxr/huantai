@@ -24,6 +24,7 @@ final class RemoteSettingsTests: XCTestCase {
         model.saveRemoteTarget(id: nil, name: " 自定义远端 ", host: " example ", root: "/srv/custom-codex")
         try await waitForSave(model)
         let target = try XCTUnwrap(model.sourceConfiguration.remoteTargets.first)
+        XCTAssertFalse(target.botmuxEnabled)
         XCTAssertEqual(target.name, "自定义远端")
         XCTAssertEqual(target.host, "example")
         XCTAssertEqual(target.sessionRoot, "/srv/custom-codex")
@@ -36,6 +37,12 @@ final class RemoteSettingsTests: XCTestCase {
         XCTAssertEqual(model.sourceConfiguration.remoteTargets.count, 1)
         XCTAssertEqual(model.sourceConfiguration.remoteTargets.first?.host, "another")
         XCTAssertEqual(try store.configuration().remoteTargets.first?.sessionRoot, "~/custom")
+        XCTAssertTrue(model.sourceConfiguration.remoteTargets[0].botmuxEnabled)
+        model.saveRemoteTarget(
+            id: target.id, name: "已编辑", host: "another", root: "~/custom",
+            botmuxRoot: "", botmuxEnabled: false)
+        try await waitForSave(model)
+        XCTAssertFalse(model.sourceConfiguration.remoteTargets[0].botmuxEnabled)
         model.removeRemoteTarget(id: target.id)
         try await waitForSave(model)
         XCTAssertTrue(model.sourceConfiguration.remoteTargets.isEmpty)

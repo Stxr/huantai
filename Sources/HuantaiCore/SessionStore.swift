@@ -286,8 +286,15 @@ public final class SessionStore: @unchecked Sendable {
         let existing: IndexSnapshot? = try withStoreLock {
             guard var snapshot = try load(IndexSnapshot.self, name: "index.json") else { return nil }
             let preferences = try load(Preferences.self, name: "preferences.json") ?? Preferences()
+            let configuration = try load(StoreConfiguration.self, name: "config.json") ?? StoreConfiguration()
             var needsSanitizedSave = false
             for index in snapshot.sessions.indices {
+                if let target = configuration.remoteTargets.first(where: {
+                    snapshot.sessions[index].id.hasPrefix(RemoteCodexReader.prefix($0))
+                }) {
+                    snapshot.sessions[index] = RemoteCodexReader.applyingBotmuxPreference(
+                        snapshot.sessions[index], target: target)
+                }
                 let title = displayTitle(snapshot.sessions[index].title, id: snapshot.sessions[index].id)
                 let source = sourceName(snapshot.sessions[index].source)
                 if title != snapshot.sessions[index].title || source != snapshot.sessions[index].source {

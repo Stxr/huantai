@@ -6,7 +6,7 @@ import XCTest
 final class RemoteCodexTests: XCTestCase {
     private let nativeID = "019f9d97-401f-7942-b6ba-4cda42ca604e"
     private let target = RemoteTarget(
-        id: "example", name: "测试主机", host: "user@example", sessionRoot: "/srv/codex")
+        id: "example", name: "测试主机", host: "user@example", sessionRoot: "/srv/codex", botmuxEnabled: true)
 
     func testTargetValidationAndIdentityIsolation() throws {
         try RemoteCodexReader.validate(target)
@@ -131,6 +131,40 @@ final class RemoteCodexTests: XCTestCase {
             RemoteTarget.self,
             from: Data(#"{"id":"legacy","name":"legacy","host":"example","sessionRoot":"~/.codex"}"#.utf8))
         XCTAssertNil(legacy.botmuxRoot)
+        XCTAssertTrue(legacy.botmuxEnabled)
+        XCTAssertFalse(RemoteTarget(id: "new", name: "new", host: "example").botmuxEnabled)
+    }
+
+    func testDisablingBotmuxClearsOfflineRoutesAndPreservesExplicitMappings() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = makeStore(directory)
+        var record = try makeRecord()
+        record.source = "Botmux"
+        record.openURL = SourceOpening.feishuChatURL(chatID: "oc_fixture")
+        let remoteRecord = record
+        store.remoteScanner = RemoteCodexScanner { target in
+            if !target.botmuxEnabled { throw HuantaiError.sourceUnavailable("offline") }
+            return [remoteRecord]
+        }
+        try store.setRemoteTarget(target)
+        _ = try store.refreshRemotes()
+        try store.setFavorite(id: record.id, value: true)
+        var disabled = target
+        disabled.botmuxEnabled = false
+        disabled.botmuxRoot = ""
+        try store.setRemoteTarget(disabled)
+        XCTAssertNil(try store.snapshot().sessions.first?.openURL)
+        let refreshed = try store.refreshRemotes()
+        XCTAssertEqual(refreshed.sessions.first?.source, "Codex")
+        XCTAssertNil(refreshed.sessions.first?.openURL)
+        XCTAssertEqual(refreshed.sessions.first?.isFavorite, true)
+        let restarted = makeStore(directory)
+        XCTAssertFalse(try restarted.configuration().remoteTargets[0].botmuxEnabled)
+        XCTAssertNil(try restarted.snapshot().sessions.first?.openURL)
+        let mapping = SourceOpening.feishuChatURL(chatID: "oc_manual")!
+        try restarted.setOpenMapping(id: record.id, url: mapping)
+        XCTAssertEqual(try restarted.snapshot().sessions.first?.openURL, mapping)
     }
 
     private func makeRecord() throws -> SessionRecord {
