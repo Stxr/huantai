@@ -67,6 +67,7 @@ struct SessionToastView: View {
                 }
             }
             .font(.system(size: 10)).foregroundStyle(.secondary)
+            SessionTokenUsageView(usage: toast.session.tokenUsage)
             if toast.showsCompletionHint {
                 Text(toast.message).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
                 Divider().opacity(0.6)
@@ -105,10 +106,11 @@ struct SessionToastView: View {
 }
 
 enum SessionToastLayout {
+    static let preferredHeight: CGFloat = 206
     static func frame(in visibleFrame: NSRect) -> NSRect {
         let margin: CGFloat = 20
         let width = min(360, max(0, visibleFrame.width - margin * 2))
-        let height = min(184, max(0, visibleFrame.height - margin * 2))
+        let height = min(preferredHeight, max(0, visibleFrame.height - margin * 2))
         return NSRect(
             x: visibleFrame.maxX - width - margin, y: visibleFrame.minY + margin,
             width: width, height: height)

@@ -8,6 +8,8 @@ public final class SessionStore: @unchecked Sendable {
     public let botmuxDirectory: URL
     public let deepSeekHarnessDirectory: URL
     private let deepSeekHarnessScanner = DeepSeekHarnessScanner()
+    private let tokenUsageScanner = SessionTokenUsageScanner()
+    var remoteScanner = RemoteCodexScanner()
     private let mutex = NSLock()
     private let fileManager = FileManager.default
     private var decodedFiles: [String: (stamp: FileStamp, value: Any)] = [:]
@@ -38,6 +40,20 @@ public final class SessionStore: @unchecked Sendable {
             ?? ProcessInfo.processInfo.environment["DSH_HOME"]).map {
                 URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath, isDirectory: true)
             } ?? home.appendingPathComponent(".dsh", isDirectory: true)
+    }
+
+    /// CLI callers can wait for remote reads without holding the store lock.
+    public func refreshRemotes() throws -> IndexSnapshot {
+        let targets = try configuration().remoteTargets
+        let previous = try snapshot().sessions
+        for target in targets {
+            _ = remoteScanner.scan(
+                target,
+                cached: previous.filter {
+                    $0.id.hasPrefix(RemoteCodexReader.prefix(target))
+                }, wait: true)
+        }
+        return try refresh()
     }
 
     public func refresh() throws -> IndexSnapshot {
@@ -129,7 +145,8 @@ public final class SessionStore: @unchecked Sendable {
                                 lastAIReplyAt: reply, lastAIReplyPreview: preview,
                                 isFavorite: preferences.favorites.contains(thread.id),
                                 openURL: mapping,
-                                openUnavailableReason: mapping == nil ? "尚无已核验的来源链接，可显式配置映射" : nil))
+                                openUnavailableReason: mapping == nil ? "尚无已核验的来源链接，可显式配置映射" : nil,
+                                tokenUsage: allowed.flatMap { tokenUsageScanner.scan($0) }))
                     }
                     let detail =
                         unavailableRollouts == 0
@@ -139,7 +156,9 @@ public final class SessionStore: @unchecked Sendable {
                     if let previous = try load(IndexSnapshot.self, name: "index.json"),
                         !previous.sessions.isEmpty
                     {
-                        sessions = previous.sessions.filter { $0.source != "DeepSeek Harness" }
+                        sessions = previous.sessions.filter {
+                            $0.source != "DeepSeek Harness" && !$0.id.hasPrefix("remote:")
+                        }
                         snapshotDate = previous.updatedAt
                         nextCache = cached
                         sources.append(
@@ -206,6 +225,23 @@ public final class SessionStore: @unchecked Sendable {
                 sources.append(
                     SourceStatus(id: "deepseek-harness", name: "本机 DeepSeek Harness", status: "已关闭"))
             }
+            let previousRemoteSessions = (try? load(IndexSnapshot.self, name: "index.json"))?.sessions ?? []
+            for target in configuration.remoteTargets {
+                let result = remoteScanner.scan(
+                    target,
+                    cached: previousRemoteSessions.filter {
+                        $0.id.hasPrefix(RemoteCodexReader.prefix(target))
+                    })
+                sessions.append(
+                    contentsOf: result.sessions.map { session in
+                        var value = session
+                        value.title = displayTitle(value.title, id: value.id)
+                        value.cwd = cleanMetadata(value.cwd)
+                        return value
+                    })
+                sources.append(
+                    SourceStatus(id: "remote-" + target.id, name: target.name, status: result.status))
+            }
             for index in sessions.indices {
                 sessions[index].isFavorite = preferences.favorites.contains(sessions[index].id)
                 sessions[index].isCompleted = preferences.completed.contains(sessions[index].id)
@@ -215,6 +251,12 @@ public final class SessionStore: @unchecked Sendable {
                             Self.validatedOpenURL($0)
                         } ?? SourceOpening.deepSeekHarnessURL
                     sessions[index].openUnavailableReason = nil
+                } else if sessions[index].id.hasPrefix("remote:") {
+                    sessions[index].openURL =
+                        preferences.openMappings[sessions[index].id].flatMap {
+                            Self.validatedOpenURL($0)
+                        } ?? sessions[index].openURL.flatMap { Self.validatedOpenURL($0) }
+                    if sessions[index].openURL != nil { sessions[index].openUnavailableReason = nil }
                 } else if sessions[index].source != "Botmux" {
                     sessions[index].openURL =
                         preferences.openMappings[sessions[index].id]
@@ -224,12 +266,6 @@ public final class SessionStore: @unchecked Sendable {
                         sessions[index].openURL == nil
                         ? "尚无已核验的来源链接，可显式配置映射" : nil
                 }
-            }
-            for target in configuration.remoteTargets {
-                sources.append(
-                    SourceStatus(
-                        id: target.id, name: target.name,
-                        status: "已配置，未连接（首版不自动执行 SSH）"))
             }
             let usage = try load(UsageSummary.self, name: "usage.json") ?? UsageSummary()
             if nextCache != cached { try save(nextCache, name: "reply-cache.json") }
@@ -269,6 +305,7 @@ public final class SessionStore: @unchecked Sendable {
                     ?? (snapshot.sessions[index].source == "DeepSeek Harness"
                         ? SourceOpening.deepSeekHarnessURL
                         : snapshot.sessions[index].source == "Botmux"
+                            || snapshot.sessions[index].id.hasPrefix("remote:")
                             ? snapshot.sessions[index].openURL.flatMap { Self.validatedOpenURL($0) }
                             : SourceOpening.codexURL(sessionID: snapshot.sessions[index].id))
                 if snapshot.sessions[index].openURL != nil {
@@ -364,7 +401,8 @@ public final class SessionStore: @unchecked Sendable {
                 if var snapshot = try load(IndexSnapshot.self, name: "index.json") {
                     snapshot.sessions.removeAll {
                         source == .deepSeekHarness
-                            ? $0.source == "DeepSeek Harness" : $0.source != "DeepSeek Harness"
+                            ? $0.source == "DeepSeek Harness"
+                            : $0.source != "DeepSeek Harness" && !$0.id.hasPrefix("remote:")
                     }
                     try save(snapshot, name: "index.json")
                 }
@@ -375,19 +413,41 @@ public final class SessionStore: @unchecked Sendable {
     }
 
     public func setRemoteTarget(_ target: RemoteTarget) throws {
-        guard !target.id.isEmpty, !target.name.isEmpty,
-            target.host.range(of: "^[A-Za-z0-9_.@:-]+$", options: .regularExpression) != nil,
-            !target.host.hasPrefix("-"), !target.sessionRoot.contains("\n"),
-            !target.sessionRoot.isEmpty
-        else {
-            throw HuantaiError.invalidConfiguration("SSH 目标需明确名称、有效主机及会话根目录；首版仅保存配置。")
-        }
+        try RemoteCodexReader.validate(target)
         try withStoreLock {
             var configuration = try load(StoreConfiguration.self, name: "config.json") ?? StoreConfiguration()
-            configuration.remoteTargets.removeAll { $0.id == target.id }
+            let replaced = configuration.remoteTargets.filter { $0.id == target.id }
+            configuration.remoteTargets.removeAll {
+                $0.id == target.id || RemoteCodexReader.prefix($0) == RemoteCodexReader.prefix(target)
+            }
             configuration.remoteTargets.append(target)
             try save(configuration, name: "config.json")
+            try removeCachedRemotes(
+                replaced.filter {
+                    RemoteCodexReader.prefix($0) != RemoteCodexReader.prefix(target)
+                })
         }
+    }
+
+    public func removeRemoteTarget(id: String) throws {
+        try withStoreLock {
+            var configuration = try load(StoreConfiguration.self, name: "config.json") ?? StoreConfiguration()
+            let removed = configuration.remoteTargets.filter { $0.id == id }
+            configuration.remoteTargets.removeAll { $0.id == id }
+            try save(configuration, name: "config.json")
+            try removeCachedRemotes(removed)
+        }
+    }
+
+    private func removeCachedRemotes(_ targets: [RemoteTarget]) throws {
+        guard !targets.isEmpty, var snapshot = try load(IndexSnapshot.self, name: "index.json") else {
+            return
+        }
+        snapshot.sessions.removeAll { session in
+            targets.contains { session.id.hasPrefix(RemoteCodexReader.prefix($0)) }
+        }
+        snapshot.sources.removeAll { source in targets.contains { source.id == "remote-" + $0.id } }
+        try save(snapshot, name: "index.json")
     }
 
     @discardableResult

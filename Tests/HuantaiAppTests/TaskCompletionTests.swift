@@ -719,8 +719,10 @@ final class TaskCompletionTests: XCTestCase {
         for theme in ["light", "dark"] {
             for (name, value) in [("toast", toast), ("toast-unavailable", unavailable)] {
                 let renderer = ImageRenderer(
-                    content: SessionToastView(toast: value).frame(width: 360, height: 184)
-                        .environment(\.colorScheme, theme == "dark" ? .dark : .light))
+                    content: SessionToastView(toast: value).frame(
+                        width: 360, height: SessionToastLayout.preferredHeight
+                    )
+                    .environment(\.colorScheme, theme == "dark" ? .dark : .light))
                 renderer.scale = 2
                 let rendered = try XCTUnwrap(renderer.nsImage)
                 let bitmap = try XCTUnwrap(NSBitmapImageRep(data: XCTUnwrap(rendered.tiffRepresentation)))

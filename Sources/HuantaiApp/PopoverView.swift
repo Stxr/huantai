@@ -251,7 +251,7 @@ struct SessionRow: View {
                         .multilineTextAlignment(.leading)
                 }
                 .buttonStyle(.plain)
-                .help(session.openURL == nil ? "尚未配置来源链接；右键可设置" : "打开来源会话")
+                .help(session.openURL == nil ? session.openUnavailableReason ?? "尚未配置来源链接；右键可设置" : "打开来源会话")
                 .contextMenu {
                     Button("设置来源链接…") { model.configureLink(session) }
                     Button(session.isCompleted ? "恢复为未完成" : "标为已完成") {
@@ -259,7 +259,7 @@ struct SessionRow: View {
                     }
                     Button("复制会话 ID") {
                         NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(session.id, forType: .string)
+                        NSPasteboard.general.setString(session.nativeSessionID, forType: .string)
                     }
                 }
                 Text(session.lastAIReplyPreview ?? "暂无可显示的回复")
@@ -269,6 +269,7 @@ struct SessionRow: View {
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityIdentifier("session-last-reply")
+                SessionTokenUsageView(usage: session.tokenUsage)
                 HStack(spacing: 6) {
                     chip(session.source)
                     chip(session.machine)

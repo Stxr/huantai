@@ -259,6 +259,7 @@ struct SettingsView: View {
                     }
                 }
             }
+            card { RemoteConnectionsView(model: model) }
             Text("默认同时读取 Codex 和官方 DeepSeek Harness。选择各自数据主目录；DeepSeek Harness 默认 ~/.dsh。")
                 .font(.system(size: 11)).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

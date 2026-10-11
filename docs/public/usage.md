@@ -14,6 +14,20 @@ DeepSeek Harness 从 `sessions/<项目>/<会话>/session[.vN].jsonl[.zstd]` 读�
 
 `⌘⇧Z` 撤回本次运行中最近一次由原生快捷键或鼠标完成的会话，将其恢复为未完成并返回该会话；连续按可依次撤回，不受15秒限制，当前搜索或收藏筛选不会阻止返回。撤回记录仅在本次运行中保留，重启后清空；CLI/Web 的完成动作不加入原生撤回记录。
 
+## 远端 Codex 与会话用量
+
+设置 → 连接与数据 → 远端 Codex 中填写名称、SSH 主机（配置别名或 `user@host`）和远端 Codex 数据目录，然后添加。已有目标支持编辑和移除；`~/.codex` 中的 `~` 在远端展开，也可以填写绝对路径。远端配置不依赖本机 Codex 开关或数据目录，不会自动发现主机。
+
+连接使用系统 SSH 配置，需预先完成主机指纹确认并能免交互登录；远端需安装 Python 3。App 每 30 秒后台只读同步，单次读取最多等待 20 秒，不阻塞本机会话刷新。断线时保留上次缓存并显示状态；移除目标后，其会话从列表移除。相同会话 ID 在不同主机或数据目录中独立保存收藏、完成状态。
+
+远端 Botmux 会话读取远端 Botmux 数据目录（默认 `~/.botmux/data`，可在同一设置中修改），通过 `cliSessionId` 关联并标记为 Botmux。点击标题按聊天/话题元数据打开飞书；兼容 SQLite 会话库及旧 JSON 存储，同一存储优先 SQLite。缺少有效 ID 或关联多个不同目标时提示配置来源链接，不从标题猜测，也不把缺失话题链接降级为群聊。
+
+其他远端会话默认不生成本机 Codex 跳转链接；请在 Codex 对应主机中打开，或登录远端执行 `codex resume <原始会话 ID>`。也可右键设置已核验的来源链接。
+
+本机和远端 Codex 会话显示累计 Token 与上下文/窗口，沿用 Codo 的统计口径：取最新 `token_count` 的 `total_token_usage.total_tokens`，不累加历史采样；上下文取 `last_token_usage.input_tokens`，包含缓存输入。占用达到 65% / 85% 时分别显示橙色/红色。上下文压缩后显示 `↻`，直到新采样到达；缺失数据显示 `—`，不当作零。悬停可查看采样时间和说明。
+
+用量最多读取日志末尾 8 MiB，本机未变化文件复用缓存；远端回复预览也限于这段尾部。窗口内没有相应事件时保持未知，不回传完整对话或认证文件。账户额度仍由本机已登录 Codex 提供，不与单会话 Token 混算。
+
 ## 菜单栏与额度
 
 设置 → 外观 → 菜单栏图标提供三种显示：
@@ -41,6 +55,9 @@ DeepSeek Harness 从 `sessions/<项目>/<会话>/session[.vN].jsonl[.zstd]` 读�
 ## CLI
 
 ```bash
+ht config remote-add build-box user@example '~/.codex'
+ht config remote-sync             # 等待远端同步并显示状态
+ht config remote-remove build-box
 ht list
 ht list --favorites --json
 ht query 关键词
@@ -56,7 +73,7 @@ ht usage refresh --json
 
 `HUANTAI_DSH_HOME` 覆盖 DeepSeek Harness 数据主目录，未指定时读取 `DSH_HOME` 或 `~/.dsh`。设置中保存的目录优先于环境默认；App、CLI、Web 共用来源开关与目录配置。
 
-Web 详情位于 `http://127.0.0.1:18784/`，随 App 运行，提供筛选、详情和状态操作。远端配置目前只保存明确指定的目标，不自动发现或连接 SSH 主机。
+Web 详情位于 `http://127.0.0.1:18784/`，随 App 运行，提供筛选、详情和状态操作。远端目标通过设置或 CLI 显式配置，不自动发现 SSH 主机。
 
 ## 当前边界
 
