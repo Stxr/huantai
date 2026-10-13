@@ -279,7 +279,7 @@ enum WebAssets {
           $('today-reference').textContent = todayKnown ? `${belowReference ? '今日超出' : '今日参考剩余'} ${dailyValue}` : connected ? '今日参考待更新' : '今日参考未连接';
           $('today-reference').classList.toggle('available', todayKnown && !belowReference);
           $('today-reference').classList.toggle('over', belowReference);
-          $('today-reference').title = todayKnown ? `前几天未用的参考额度累计到今天，百分比以全周额度为100%。今日参考截止：${HuantaiViewModel.fullTimestamp(projection.todayReferenceEndsAt)}（${projection.todayReferenceTimeZone || '本机时区'}）` : '需要有效的当前周窗口';
+          $('today-reference').title = todayKnown ? `从官方周重置时间起，每24小时分配周额度的1/7；本周未用部分结转，新周重新计算。百分比以全周额度为100%。本日截止：${HuantaiViewModel.fullTimestamp(projection.todayReferenceEndsAt)}（${projection.todayReferenceTimeZone || '本机时区'}）` : '需要有效的当前周窗口';
           const green = belowReference ? 0 : remaining;
           const red = belowReference ? remaining : 0;
           $('green-segment').style.width = `${green}%`;

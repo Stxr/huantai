@@ -28,8 +28,10 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 28) {
             shortcuts
             general
+            CLISettingsView()
             taskHooks
             connections
+            FeishuBotSettingsView(manager: model.feishuBot)
             syncStatus
         }
         .frame(maxWidth: .infinity, alignment: .leading)

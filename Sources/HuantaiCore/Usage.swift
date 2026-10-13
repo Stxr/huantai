@@ -1,6 +1,11 @@
 import Foundation
 
 public enum UsageDate {
+    public static func referenceEndText(endsAt: Date?, timeZone: TimeZone = .current) -> String {
+        guard let endsAt, endsAt.timeIntervalSince1970.isFinite else { return "待更新" }
+        return format(endsAt, pattern: "MM-dd HH:mm", timeZone: timeZone)
+    }
+
     public static func resetText(resetsAt: Date?, timeZone: TimeZone = .current) -> String {
         guard let resetsAt, resetsAt.timeIntervalSince1970.isFinite else { return "重置时间未连接" }
         return format(resetsAt, pattern: "MM-dd(EEE) HH:mm 重置", timeZone: timeZone)
@@ -49,6 +54,7 @@ public struct UsageProjection: Codable, Sendable, Equatable {
     public var todayReferenceRemainingPercent: Double? = nil
     public var todayReferenceEndsAt: Date? = nil
     public var todayReferenceTimeZone: String? = nil
+    public var todayReferenceAllowancePercent: Double? = nil
 
     /// User reference pace, not an official daily allowance.
     public static func calculate(
@@ -74,17 +80,16 @@ public struct UsageProjection: Codable, Sendable, Equatable {
             referenceBudgetPercent: budget, estimatedEndPercent: nil,
             greenPercent: min(used, budget), overBudgetPercent: max(0, used - budget),
             status: "用户自定参考节奏")
-        if let day = calendar.dateInterval(of: .day, for: now) {
-            let cutoff = min(day.end, window.resetsAt)
-            let start = window.resetsAt.addingTimeInterval(-duration)
-            let todayBudget = min(100, max(0, cutoff.timeIntervalSince(start) / duration * 100))
-            // Unspent reference allowance carries forward. This is a cumulative day-end
-            // allowance, not an invented measurement of consumption since midnight.
-            projection.todayReferenceBudgetPercent = todayBudget
-            projection.todayReferenceRemainingPercent = todayBudget - window.usedPercent
-            projection.todayReferenceEndsAt = cutoff
-            projection.todayReferenceTimeZone = calendar.timeZone.identifier
-        }
+        // Reference days are consecutive 24-hour periods anchored to the official reset,
+        // not local midnight. A new weekly window starts a fresh allowance and usage total.
+        let dayStartOffset = floor(elapsed / 86400) * 86400
+        let dayEndOffset = min(duration, dayStartOffset + 86400)
+        let todayBudget = dayEndOffset / duration * 100
+        projection.todayReferenceBudgetPercent = todayBudget
+        projection.todayReferenceRemainingPercent = todayBudget - window.usedPercent
+        projection.todayReferenceEndsAt = window.resetsAt.addingTimeInterval(dayEndOffset - duration)
+        projection.todayReferenceTimeZone = calendar.timeZone.identifier
+        projection.todayReferenceAllowancePercent = (dayEndOffset - dayStartOffset) / duration * 100
         return projection
     }
 }

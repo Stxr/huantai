@@ -22,6 +22,7 @@ task_swift_args=(--configuration release --arch arm64 --scratch-path "$task_root
   --cache-path "$task_root/.build/cache" --config-path "$task_root/.build/config"
   --security-path "$task_root/.build/security" --disable-netrc --disable-keychain
   -Xswiftc -gnone -Xswiftc -file-prefix-map -Xswiftc "$task_root=/src/huantai")
+if [ -n "${HUANTAI_BUILD_SYSTEM:-}" ]; then task_swift_args+=(--build-system "$HUANTAI_BUILD_SYSTEM"); fi
 swift build "${task_swift_args[@]}"
 task_bin="$(swift build "${task_swift_args[@]}" --show-bin-path)"
 task_image="$task_work/image"
@@ -44,10 +45,14 @@ for task_executable in "$task_app/Contents/MacOS/HuantaiApp" "$task_cli/ht"; do
   fi
   strip -S "$task_executable"
 done
+scripts/packaging/artwork.sh "$task_work/artwork"
+cp "$task_work/artwork/Huantai.icns" "$task_app/Contents/Resources/"
 task_signing="${HUANTAI_SIGNING_IDENTITY:--}"
 task_sign_args=(--force --sign "$task_signing" --options runtime)
 if [ "$task_signing" != "-" ]; then task_sign_args+=(--timestamp); fi
 codesign "${task_sign_args[@]}" "$task_cli/ht"
+cp "$task_cli/ht" "$task_app/Contents/MacOS/ht"
+cp Sources/HuantaiApp/Resources/install-cli.sh "$task_app/Contents/Resources/"
 codesign "${task_sign_args[@]}" "$task_app"
 codesign --verify --strict "$task_cli/ht"
 codesign --verify --deep --strict "$task_app"
@@ -60,11 +65,9 @@ macOS 14 及以上。运行 ./ht --help 查看命令。
 
 项目: https://github.com/Stxr/huantai
 EOF
-ln -s /Applications "$task_image/Applications"
 task_dmg="huantai-$task_tag-macos-arm64.dmg"
 task_archive="$task_cli_name.tar.gz"
-hdiutil create -srcfolder "$task_image" -volname "换台 $task_tag" -format UDZO \
-  -ov "$task_root/dist/$task_dmg"
+scripts/packaging/dmg.sh "$task_app" "$task_root/dist/$task_dmg" "$task_tag" "$task_work/artwork"
 tar --no-mac-metadata -czf "$task_root/dist/$task_archive" -C "$task_work" "$task_cli_name"
 (
   cd "$task_root/dist"

@@ -12,12 +12,15 @@ let package = Package(
         .systemLibrary(name: "CSQLite", pkgConfig: "sqlite3"),
         .target(name: "HuantaiCore", dependencies: ["CSQLite"]),
         .target(name: "HuantaiWeb", dependencies: ["HuantaiCore"]),
-        .executableTarget(name: "ht", dependencies: ["HuantaiCore"]),
+        .target(name: "HuantaiFeishu", dependencies: ["HuantaiCore"]),
+        .executableTarget(name: "ht", dependencies: ["HuantaiCore", "HuantaiFeishu"]),
         .executableTarget(
-            name: "HuantaiApp", dependencies: ["HuantaiCore", "HuantaiWeb"], exclude: ["Resources"]),
+            name: "HuantaiApp", dependencies: ["HuantaiCore", "HuantaiWeb", "HuantaiFeishu"],
+            exclude: ["Resources"]),
+        .testTarget(name: "HuantaiFeishuTests", dependencies: ["HuantaiFeishu", "HuantaiCore"]),
         .testTarget(name: "HuantaiCoreTests", dependencies: ["HuantaiCore", "CSQLite"]),
         .testTarget(name: "HuantaiWebTests", dependencies: ["HuantaiWeb", "HuantaiCore"]),
-        .testTarget(name: "HuantaiAppTests", dependencies: ["HuantaiApp", "HuantaiCore"]),
+        .testTarget(name: "HuantaiAppTests", dependencies: ["HuantaiApp", "HuantaiCore", "HuantaiFeishu"]),
     ],
     swiftLanguageModes: [.v5]
 )

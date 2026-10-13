@@ -124,6 +124,7 @@ private final class SessionToastPanel: NSPanel {
 
 /// This is an app-owned, click-through panel. Showing it never activates the app or changes focus.
 final class SessionToastController {
+    static let displayDuration: TimeInterval = 3
     let panel: NSPanel
     private var binding: AnyCancellable?
     private var dismissal: DispatchWorkItem?
@@ -175,15 +176,13 @@ final class SessionToastController {
             panel.setFrame(SessionToastLayout.frame(in: screen.visibleFrame), display: true)
             displayedID = toast.id
             dismissal?.cancel()
-            let delay =
-                toast.completionDeadline.map { max(0, $0 - ProcessInfo.processInfo.systemUptime) } ?? 4
             let item = DispatchWorkItem { [weak self] in
                 guard self?.displayedID == toast.id else { return }
                 self?.panel.orderOut(nil)
                 self?.panel.contentViewController = nil
             }
             dismissal = item
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.displayDuration, execute: item)
         }
         panel.orderFrontRegardless()
     }

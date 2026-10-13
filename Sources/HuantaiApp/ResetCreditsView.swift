@@ -1,6 +1,36 @@
 import HuantaiCore
 import SwiftUI
 
+struct ResetCreditsBadge: View {
+    let usage: UsageSummary
+    private static let availableColor = Color(red: 22 / 255, green: 115 / 255, blue: 71 / 255)
+
+    static func isExpiringSoon(_ usage: UsageSummary, now: Date) -> Bool {
+        guard let count = usage.resetCount, count > 0 else { return false }
+        let deadline = now.addingTimeInterval(3 * 24 * 60 * 60)
+        return (usage.resetCredits ?? []).prefix(count).contains { credit in
+            guard credit.expirationKnown, let expiry = credit.expiresAt else { return false }
+            return expiry > now && expiry <= deadline
+        }
+    }
+
+    var body: some View {
+        if let count = usage.resetCount, count > 0 {
+            TimelineView(.periodic(from: .now, by: 60)) { context in
+                let expiringSoon = Self.isExpiringSoon(usage, now: context.date)
+                Text("\(count)")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 3)
+                    .frame(minWidth: 13, minHeight: 13)
+                    .background(expiringSoon ? Color.red : Self.availableColor, in: Capsule())
+                    .fixedSize()
+                    .help(expiringSoon ? "有重置卡将在 3 天内到期" : "可用重置卡 \(count) 张")
+            }
+        }
+    }
+}
+
 struct ResetCreditsView: View {
     let usage: UsageSummary
 

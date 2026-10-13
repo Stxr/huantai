@@ -7,6 +7,7 @@ struct PopoverView: View {
     var contentSize = PopoverLayout.preferredSize
     @State private var searching = false
     @State private var showingResetCredits = false
+    @State private var showingRecency = false
     @FocusState private var searchFocused: Bool
 
     private var sessions: [SessionRecord] {
@@ -27,6 +28,13 @@ struct PopoverView: View {
     private var sessionPage: some View {
         VStack(spacing: 0) {
             header.fixedSize(horizontal: false, vertical: true)
+            if showingRecency {
+                SessionRecencyView(model: model)
+                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 16))
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 12)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if searching {
                 HStack {
                     Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
@@ -130,22 +138,38 @@ struct PopoverView: View {
                 Image(systemName: "ticket")
                     .foregroundStyle(showingResetCredits ? Color.accentColor : .secondary)
                     .overlay(alignment: .topTrailing) {
-                        if let count = model.snapshot.usage.resetCount, count > 0 {
-                            Text("\(count)")
-                                .font(.system(size: 8, weight: .bold))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 3)
-                                .frame(minWidth: 13, minHeight: 13)
-                                .background(Color.red, in: Capsule())
-                                .fixedSize()
-                                .offset(x: 7, y: -7)
-                        }
+                        ResetCreditsBadge(usage: model.snapshot.usage)
+                            .offset(x: 7, y: -7)
                     }
             }
             .help(showingResetCredits ? "收起重置卡详情" : "展开重置卡详情")
             .accessibilityLabel("重置卡")
             .accessibilityValue(model.snapshot.usage.resetCount.map { "\($0) 张" } ?? "未连接")
             .accessibilityIdentifier("reset-credits-toggle")
+            Button {
+                showingRecency.toggle()
+            } label: {
+                Image(systemName: "clock")
+                    .foregroundStyle(
+                        showingRecency || model.sessionRecency != .all ? Color.accentColor : .secondary
+                    )
+                    .overlay(alignment: .topTrailing) {
+                        if let days = model.sessionRecency.days {
+                            Text("\(days)")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundStyle(.white)
+                                .frame(width: 13, height: 13)
+                                .background(Color.accentColor, in: Circle())
+                                .fixedSize()
+                                .offset(x: 7, y: -7)
+                                .accessibilityHidden(true)
+                        }
+                    }
+            }
+            .help("消息时间范围：\(model.sessionRecency.title)")
+            .accessibilityLabel("消息时间范围")
+            .accessibilityValue(model.sessionRecency.title)
+            .accessibilityIdentifier("session-recency-toggle")
             Button {
                 searching.toggle()
                 if !searching { model.sessionQuery = "" }
@@ -184,7 +208,12 @@ struct PopoverView: View {
                     : model.showsCompleted ? "没有已完成的会话" : model.favoritesOnly ? "没有未完成的收藏" : "没有未完成的会话"
             )
             .font(.system(size: 14, weight: .medium))
-            if model.favoritesOnly && model.sessionQuery.isEmpty {
+            if model.sessionRecency != .all {
+                Text("当前范围：\(model.sessionRecency.title)")
+                    .font(.caption).foregroundStyle(.secondary)
+                Button("查看所有日期") { model.setSessionRecency(.all) }
+                    .buttonStyle(.link)
+            } else if model.favoritesOnly && model.sessionQuery.isEmpty {
                 Text("点会话右侧星标收藏，随时从这里换台。")
                     .font(.caption).foregroundStyle(.secondary)
                 Button("查看全部会话") { model.setFavoritesOnly(false) }
@@ -360,7 +389,9 @@ private struct WeeklyUsageView: View {
                     Text(today < 0 ? "今日超出 \(dailyPercent(-today))" : "今日参考剩余 \(dailyPercent(today))")
                         .monospacedDigit()
                         .foregroundStyle(today < 0 ? Color.red : Color.green)
-                        .help("每日按均匀节奏分配，前几天未用的参考额度累计到今天；百分比以全周总额度为100%，按本机时区今日结束计算。")
+                        .help(
+                            "从官方周重置时间起，每24小时分配周额度的1/7；本周未用部分结转，新周重新计算。百分比以全周额度为100%。本日截止：\(UsageDate.referenceEndText(endsAt: projection.todayReferenceEndsAt))"
+                        )
                 } else {
                     Text(usage.weekly == nil ? "用量来源待配置" : "今日参考待更新")
                 }

@@ -87,14 +87,15 @@ Codex / Botmux 会话管理 · 彩色额度圆环 · 全局快捷键 · 原生 S
 支持 **Apple Silicon（ARM64）与 macOS 14 及以上**。
 
 1. 从 [Releases](https://github.com/Stxr/huantai/releases/latest) 下载 `huantai-v0.2.3-macos-arm64.dmg`。
-2. 打开 DMG，将「换台.app」拖入 Applications 并运行。
-3. 点击菜单栏圆环，或按 `⌘⌥,` 开始换台。
+2. 打开 DMG，沿箭头将左侧「换台」拖入右侧 Applications（应用程序）。
+3. 从“应用程序”打开换台，然后推出安装磁盘。升级时先退出旧版，再拖入替换；已有设置会保留。
+4. 点击菜单栏圆环，或按 `⌘⌥,` 开始换台。
 
 本版采用临时签名，尚未进行 Apple Developer ID 签名和公证。会话可读取本机 Codex 数据，或在设置中添加 SSH 远端；额度读取需要已安装且已登录的 `codex` CLI。Botmux 关联和飞书跳转需要对应的本机数据与客户端，来源不可用时会显示具体状态。
 
 ### 终端也能换台
 
-从同一 Release 下载 ARM64 CLI 压缩包，解压后运行 `ht --help`。
+安装 App 后，在设置 → 命令行工具中点击“安装 / 检查 ht”，或复制安装命令到终端执行。工具安装到 `~/.local/bin`，自动配置 Zsh、Bash 或 Fish 的 PATH；新开终端运行 `ht --help`。CLI 随 App 升级，无需另下压缩包。也可从同一 Release 下载独立 ARM64 CLI 压缩包。
 
 ```bash
 ht list                          # 最近的未完成会话
