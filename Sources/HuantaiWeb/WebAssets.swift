@@ -284,7 +284,7 @@ enum WebAssets {
           const red = belowReference ? remaining : 0;
           $('green-segment').style.width = `${green}%`;
           $('red-segment').style.left = '0%'; $('red-segment').style.width = `${red}%`;
-          const budget = projection?.referenceBudgetPercent;
+          const budget = projection?.todayReferenceBudgetPercent;
           $('budget-mark').hidden = !connected || !Number.isFinite(budget);
           if (Number.isFinite(budget)) { $('budget-mark').style.left = `${100 - clamp(budget)}%`; $('budget-mark').title = `用户自定参考剩余 ${percent(100 - clamp(budget))}，非官方日限额`; }
           const notes = [];

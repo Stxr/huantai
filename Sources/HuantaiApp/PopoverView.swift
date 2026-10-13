@@ -372,7 +372,7 @@ private struct WeeklyUsageView: View {
                             (projection.todayReferenceRemainingPercent ?? 0) < 0 ? Color.red : Color.green
                         )
                         .frame(width: width * bounded(remaining(window.usedPercent)))
-                        if let budget = projection.referenceBudgetPercent {
+                        if let budget = projection.todayReferenceBudgetPercent {
                             Path { path in
                                 let position = width * bounded(remaining(budget))
                                 path.move(to: CGPoint(x: position, y: -3))
@@ -405,7 +405,7 @@ private struct WeeklyUsageView: View {
         }
         .help(
             usage.status
-                + "；进度条表示周剩余额度，超出截至今日的累计参考时变红；虚线为均匀节奏参考剩余。参考节奏不是官方日额度。")
+                + "；进度条表示周剩余额度，超出截至今日的累计参考时变红；虚线为本参考日结束时的周剩余参考线。参考节奏不是官方日额度。")
     }
     private func dailyPercent(_ value: Double) -> String {
         value > 0 && value < 0.1 ? "<0.1%" : String(format: "%.1f%%", value)
