@@ -130,7 +130,8 @@ final class SessionToastController {
     static let displayDuration: TimeInterval = 1.5
     let panel: NSPanel
     private var binding: AnyCancellable?
-    private var dismissal: DispatchWorkItem?
+    private var dismissal: Timer?
+    private var lifetime: SessionToastLifetime?
     private var displayedID: UUID?
 
     init(model: AppModel, observeChanges: Bool = true) {
@@ -151,15 +152,16 @@ final class SessionToastController {
     }
 
     deinit {
-        dismissal?.cancel()
+        dismissal?.invalidate()
         panel.orderOut(nil)
     }
 
     private func update(_ toast: SessionToast?, appearance: String) {
         guard let toast else {
             panel.orderOut(nil)
-            dismissal?.cancel()
+            dismissal?.invalidate()
             panel.contentViewController = nil
+            lifetime = nil
             displayedID = nil
             return
         }
@@ -178,15 +180,35 @@ final class SessionToastController {
             else { return }
             panel.setFrame(SessionToastLayout.frame(in: screen.visibleFrame), display: true)
             displayedID = toast.id
-            dismissal?.cancel()
-            let item = DispatchWorkItem { [weak self] in
-                guard self?.displayedID == toast.id else { return }
-                self?.panel.orderOut(nil)
-                self?.panel.contentViewController = nil
+            dismissal?.invalidate()
+            lifetime = SessionToastLifetime(
+                duration: Self.displayDuration, now: ProcessInfo.processInfo.systemUptime,
+                hovered: panel.frame.contains(NSEvent.mouseLocation))
+            // Poll only while visible. This preserves click-through and needs no global event monitor.
+            let timer = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
+                self?.advanceLifetime()
             }
-            dismissal = item
-            DispatchQueue.main.asyncAfter(deadline: .now() + Self.displayDuration, execute: item)
+            dismissal = timer
+            RunLoop.main.add(timer, forMode: .common)
         }
         panel.orderFrontRegardless()
     }
+
+    private func advanceLifetime() {
+        guard panel.isVisible, var lifetime else {
+            dismissal?.invalidate()
+            return
+        }
+        let expired = lifetime.advance(
+            now: ProcessInfo.processInfo.systemUptime,
+            hovered: panel.frame.contains(NSEvent.mouseLocation))
+        self.lifetime = lifetime
+        if expired {
+            dismissal?.invalidate()
+            panel.orderOut(nil)
+            panel.contentViewController = nil
+            self.lifetime = nil
+        }
+    }
+
 }
