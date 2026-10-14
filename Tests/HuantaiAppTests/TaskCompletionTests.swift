@@ -649,14 +649,14 @@ final class TaskCompletionTests: XCTestCase {
     }
 
     @MainActor
-    func testToastDismissesAfterThreeSecondsWhileCompletionRemainsAvailable() async throws {
+    func testToastDismissesAfterOneAndAHalfSecondsWhileCompletionRemainsAvailable() async throws {
         let fixture = try Fixture()
         defer { fixture.cleanup() }
         let controller = SessionToastController(model: fixture.model)
         fixture.model.navigate(.first)
         try await waitFor { controller.panel.isVisible }
         XCTAssertEqual(fixture.model.toast?.completionDeadline, 115)
-        try await Task.sleep(nanoseconds: 3_300_000_000)
+        try await Task.sleep(nanoseconds: 1_800_000_000)
         XCTAssertFalse(controller.panel.isVisible)
         fixture.now = 104
         fixture.model.performShortcut(.completeCurrent)
