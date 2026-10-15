@@ -601,6 +601,7 @@ final class AppModel: ObservableObject {
             guard let value = session.openURL,
                 let validated = SessionStore.validatedOpenURL(value), let url = URL(string: validated)
             else {
+                navigation.didFailToOpen(session.id, action: action)
                 let reason = session.openUnavailableReason ?? "尚无有效的来源链接，可在会话右键菜单中设置来源链接。"
                 notice = reason
                 toast = SessionToast(
@@ -616,6 +617,7 @@ final class AppModel: ObservableObject {
                     guard let self else { return }
                     self.openingSession = false
                     if let error {
+                        self.navigation.didFailToOpen(session.id, action: action)
                         self.notice = error.localizedDescription
                         self.toast = SessionToast(
                             session: session,

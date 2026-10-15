@@ -82,6 +82,30 @@ final class TaskCompletionTests: XCTestCase {
     }
 
     @MainActor
+    func testNextContinuesPastUnavailableOrFailedSessionWithoutRecordingSuccess() async throws {
+        for unavailable in [true, false] {
+            let fixture = try Fixture()
+            defer { fixture.cleanup() }
+            let sessions = fixture.model.snapshot.sessions
+            if unavailable {
+                try fixture.setUnavailable(1, reason: "合成远端会话缺少跳转链接")
+            } else {
+                fixture.failedIDs.insert(sessions[1].id)
+            }
+            fixture.model.navigate(.first)
+            try await waitFor { fixture.model.navigation.currentID == sessions[0].id }
+            fixture.model.navigate(.next)
+            try await waitFor { fixture.model.toast?.kind == .warning }
+            XCTAssertEqual(fixture.model.navigation.currentID, sessions[0].id)
+            XCTAssertFalse(fixture.model.snapshot.sessions[1].isCompleted)
+            fixture.model.navigate(.next)
+            try await waitFor { fixture.model.navigation.currentID == sessions[2].id }
+            fixture.model.navigate(.back)
+            try await waitFor { fixture.model.navigation.currentID == sessions[0].id }
+        }
+    }
+
+    @MainActor
     func testRowControlsChangeStateWithoutOpeningAndPreserveCurrentContext() async throws {
         let fixture = try Fixture()
         defer { fixture.cleanup() }
