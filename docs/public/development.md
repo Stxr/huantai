@@ -7,6 +7,7 @@
 - `HuantaiCore`：会话索引、增量扫描、账户额度、原生链接、状态持久化及导航。
 - `HuantaiApp`：AppKit 菜单栏与浮窗，SwiftUI 列表、设置和 Toast。
 - `HuantaiWeb`：仅监听本机的 HTTP 服务与详情界面。
+- `HuantaiFeishu`：App/CLI 共用的飞书机器人配置、长连接、卡片与账号配对。
 - `ht`：共享 Core 的命令行入口。
 
 不依赖第三方 Swift 包。SQLite 通过系统模块链接，App 使用系统的 AppKit、SwiftUI、Carbon 和 ServiceManagement。
@@ -74,3 +75,11 @@ HUANTAI_HOME="$PWD/.local/ui-fixture/state" \
 远端与本机读取遵守相同目录边界：拒绝符号链接索引；日志解析后的真实路径必须仍在配置根目录的 `sessions` 或 `archived_sessions` 下，目录符号链接不能扩大读取范围。
 
 `SessionTokenUsageScanner` 与远端 Python 提取器复用 Codo 的统计语义：最新累计采样、压缩后上下文失效、未知不补零、最多 8 MiB 尾部扫描。测试通过合成 SQLite / JSONL 验证两端一致、目录逃逸、重命名标题、断线缓存及配置隔离，不依赖真实主机或账户。
+
+## 应用图标与安装镜像
+
+`./scripts/packaging/artwork.sh <输出目录>` 用 macOS AppKit 生成与项目 Logo 一致的图标和 Retina 安装背景。`build.sh` 与 `release.sh` 自动打包 `Huantai.icns`，Info.plist 通过 `CFBundleIconFile` 引用。
+
+发布脚本调用 `scripts/packaging/dmg.sh`：创建临时可写镜像，保存 640×400 的 Finder 安装布局（左侧应用、右侧 Applications、背景拖拽引导），然后压缩并验证 DMG。需要登录 macOS 图形会话及 Finder 自动化权限；布局未写入时打包失败，不生成默认空白安装窗口。安装磁盘不启动应用，用户拖入 Applications 后再运行。
+
+工具链需要兼容模式时，可设置 `HUANTAI_BUILD_SYSTEM=native`；默认仍使用 SwiftPM 默认构建系统。

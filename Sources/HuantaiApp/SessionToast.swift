@@ -40,11 +40,13 @@ struct SessionToastView: View {
     let toast: SessionToast
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 Image(systemName: "rectangle.on.rectangle")
                     .font(.system(size: 15, weight: .semibold)).foregroundStyle(Color.accentColor)
-                Text("换台").font(.system(size: 12, weight: .semibold))
+                Text(toast.session.title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1).truncationMode(.tail)
                 Spacer()
                 if let position = toast.position {
                     Text("第 \(position) / \(toast.total) 项")
@@ -52,9 +54,6 @@ struct SessionToastView: View {
                         .monospacedDigit().foregroundStyle(.secondary)
                 }
             }
-            Text(toast.session.title)
-                .font(.system(size: 14, weight: .semibold))
-                .lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: 5) {
                 Text("\(toast.session.source) · \(toast.session.machine)")
                 Spacer(minLength: 0)
@@ -70,7 +69,6 @@ struct SessionToastView: View {
             SessionTokenUsageView(usage: toast.session.tokenUsage)
             if toast.showsCompletionHint {
                 Text(toast.message).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
-                Divider().opacity(0.6)
                 TimelineView(.periodic(from: .now, by: 1)) { _ in
                     let seconds =
                         toast.completionDeadline.map {
@@ -94,11 +92,16 @@ struct SessionToastView: View {
                     .lineLimit(3).fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(18)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .background {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .opacity(0.65)
+        }
         .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(.primary.opacity(0.1), lineWidth: 0.7)
         }
         .accessibilityElement(children: .combine)
@@ -106,7 +109,7 @@ struct SessionToastView: View {
 }
 
 enum SessionToastLayout {
-    static let preferredHeight: CGFloat = 206
+    static let preferredHeight: CGFloat = 132
     static func frame(in visibleFrame: NSRect) -> NSRect {
         let margin: CGFloat = 20
         let width = min(360, max(0, visibleFrame.width - margin * 2))
@@ -124,9 +127,11 @@ private final class SessionToastPanel: NSPanel {
 
 /// This is an app-owned, click-through panel. Showing it never activates the app or changes focus.
 final class SessionToastController {
+    static let displayDuration: TimeInterval = 1.5
     let panel: NSPanel
     private var binding: AnyCancellable?
-    private var dismissal: DispatchWorkItem?
+    private var dismissal: Timer?
+    private var lifetime: SessionToastLifetime?
     private var displayedID: UUID?
 
     init(model: AppModel, observeChanges: Bool = true) {
@@ -147,15 +152,16 @@ final class SessionToastController {
     }
 
     deinit {
-        dismissal?.cancel()
+        dismissal?.invalidate()
         panel.orderOut(nil)
     }
 
     private func update(_ toast: SessionToast?, appearance: String) {
         guard let toast else {
             panel.orderOut(nil)
-            dismissal?.cancel()
+            dismissal?.invalidate()
             panel.contentViewController = nil
+            lifetime = nil
             displayedID = nil
             return
         }
@@ -174,17 +180,35 @@ final class SessionToastController {
             else { return }
             panel.setFrame(SessionToastLayout.frame(in: screen.visibleFrame), display: true)
             displayedID = toast.id
-            dismissal?.cancel()
-            let delay =
-                toast.completionDeadline.map { max(0, $0 - ProcessInfo.processInfo.systemUptime) } ?? 4
-            let item = DispatchWorkItem { [weak self] in
-                guard self?.displayedID == toast.id else { return }
-                self?.panel.orderOut(nil)
-                self?.panel.contentViewController = nil
+            dismissal?.invalidate()
+            lifetime = SessionToastLifetime(
+                duration: Self.displayDuration, now: ProcessInfo.processInfo.systemUptime,
+                hovered: panel.frame.contains(NSEvent.mouseLocation))
+            // Poll only while visible. This preserves click-through and needs no global event monitor.
+            let timer = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
+                self?.advanceLifetime()
             }
-            dismissal = item
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
+            dismissal = timer
+            RunLoop.main.add(timer, forMode: .common)
         }
         panel.orderFrontRegardless()
     }
+
+    private func advanceLifetime() {
+        guard panel.isVisible, var lifetime else {
+            dismissal?.invalidate()
+            return
+        }
+        let expired = lifetime.advance(
+            now: ProcessInfo.processInfo.systemUptime,
+            hovered: panel.frame.contains(NSEvent.mouseLocation))
+        self.lifetime = lifetime
+        if expired {
+            dismissal?.invalidate()
+            panel.orderOut(nil)
+            panel.contentViewController = nil
+            self.lifetime = nil
+        }
+    }
+
 }

@@ -10,6 +10,7 @@ public final class SessionStore: @unchecked Sendable {
     private let deepSeekHarnessScanner = DeepSeekHarnessScanner()
     private let tokenUsageScanner = SessionTokenUsageScanner()
     var remoteScanner = RemoteCodexScanner()
+    private let botmuxTopics: BotmuxTopics
     private let mutex = NSLock()
     private let fileManager = FileManager.default
     private var decodedFiles: [String: (stamp: FileStamp, value: Any)] = [:]
@@ -40,6 +41,10 @@ public final class SessionStore: @unchecked Sendable {
             ?? ProcessInfo.processInfo.environment["DSH_HOME"]).map {
                 URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath, isDirectory: true)
             } ?? home.appendingPathComponent(".dsh", isDirectory: true)
+        botmuxTopics = BotmuxTopics(directory: self.dataDirectory)
+        remoteScanner = RemoteCodexScanner { [topics = botmuxTopics] target in
+            try RemoteCodexReader.read(target, topics: topics)
+        }
     }
 
     /// CLI callers can wait for remote reads without holding the store lock.
@@ -768,7 +773,7 @@ public final class SessionStore: @unchecked Sendable {
             var statement: OpaquePointer?
             // json_extract avoids loading or persisting the private JSON row.
             let query =
-                "SELECT json_extract(row, '$.cliSessionId'), json_extract(row, '$.title'), json_extract(row, '$.nativeSessionTitle'), json_extract(row, '$.scope'), json_extract(row, '$.chatId'), json_extract(row, '$.larkThreadId') FROM sessions WHERE json_valid(row)"
+                "SELECT json_extract(row, '$.cliSessionId'), json_extract(row, '$.title'), json_extract(row, '$.nativeSessionTitle'), json_extract(row, '$.scope'), json_extract(row, '$.chatId'), json_extract(row, '$.larkThreadId'), json_extract(row, '$.rootMessageId') FROM sessions WHERE json_valid(row)"
             guard sqlite3_prepare_v2(database, query, -1, &statement, nil) == SQLITE_OK, let statement else {
                 continue
             }
@@ -787,7 +792,12 @@ public final class SessionStore: @unchecked Sendable {
                         }
                         let scope = sqlite3_column_text(statement, 3).map { String(cString: $0) } ?? ""
                         let chatID = sqlite3_column_text(statement, 4).map { String(cString: $0) } ?? ""
-                        let threadID = sqlite3_column_text(statement, 5).map { String(cString: $0) } ?? ""
+                        var threadID = sqlite3_column_text(statement, 5).map { String(cString: $0) } ?? ""
+                        let rootID = sqlite3_column_text(statement, 6).map { String(cString: $0) } ?? ""
+                        if scope == "thread", SourceOpening.feishuChatURL(chatID: chatID) != nil,
+                            !BotmuxTopics.validTopic(threadID) {
+                            threadID = botmuxTopics.topic(root: rootID) ?? threadID
+                        }
                         if scope == "chat", let link = SourceOpening.feishuChatURL(chatID: chatID) {
                             openURLs[id] = link
                             unavailableReasons.removeValue(forKey: id)

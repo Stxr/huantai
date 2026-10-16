@@ -21,6 +21,7 @@ let help = """
       ht config remote-add <名称> <user@host> [会话根目录] [Botmux 数据目录]
       ht config remote-remove <名称>
       ht config remote-sync
+      ht bot help
 
     收藏、完成状态与索引保存在 HUANTAI_HOME 或 ~/Library/Application Support/huantai。
     默认只展示未完成会话；--completed 查看已完成，--include-completed 查看全部。
@@ -65,6 +66,10 @@ func run() throws {
         return
     }
     let command = args.removeFirst()
+    if command == "bot" {
+        try runFeishuBotCLI(args)
+        return
+    }
     let json = args.contains("--json")
     let favoritesOnly = args.contains("--favorites")
     let cached = args.contains("--cached")

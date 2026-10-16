@@ -90,14 +90,8 @@ struct MenuBarUsageState: Equatable {
             return .init(fraction: nil, tooltip: "\(title)\n今日参考待更新\n\(usage.status)")
         }
         let remaining = abs(rawRemaining) < 1e-10 ? 0 : rawRemaining
-        // Normalize to this natural day's suggested allowance, including partial first/last
-        // days. The existing signed remainder carries unspent reference allowance forward.
-        guard let day = calendar.dateInterval(of: .day, for: now) else {
-            return .init(fraction: nil, tooltip: "\(title)\n今日参考待更新")
-        }
-        let dayDuration = min(day.end, window.resetsAt).timeIntervalSince(max(day.start, start))
-        let dailyAllowance = dayDuration / duration * 100
-        guard dailyAllowance > 0 else {
+        // Use the same full-day reference as the list, including the reset day.
+        guard let dailyAllowance = projection.todayReferenceAllowancePercent, dailyAllowance > 0 else {
             return .init(fraction: nil, tooltip: "\(title)\n今日参考待更新")
         }
         let ratio = remaining / dailyAllowance
@@ -156,7 +150,7 @@ enum MenuBarIcon {
         model: AppModel, button: NSStatusBarButton, now: @escaping () -> Date = Date.init,
         calendar: @escaping () -> Calendar = { .current }
     ) -> AnyCancellable {
-        // Tick even with the popover closed so a natural-day boundary or reset invalidates
+        // Tick even with the popover closed so a reference-day boundary or reset invalidates
         // the reference. Quota changes still come from the existing real usage snapshots.
         let ticks = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
             .map { _ in () }.prepend(())
