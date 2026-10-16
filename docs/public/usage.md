@@ -93,3 +93,9 @@ Web 详情位于 `http://127.0.0.1:18784/`，随 App 运行，提供筛选、详
 DMG 内的 App 已包含 ht。将 App 拖入“应用程序”后，打开设置 → 命令行工具，点击“安装 / 检查 ht”，或复制安装命令到终端执行。安装到 `~/.local/bin/ht`，链接至应用内的 CLI，后续随 App 升级。安装器支持 Zsh、Bash 和 Fish，配置对应 Shell 的 PATH；修改已有配置前会生成备份。新开终端后运行 `ht --help`。
 
 安装器不会覆盖其他工具占用的 ht。若需要撤销，删除 `~/.local/bin/ht`，并移除 Shell 配置中 `# Huantai CLI` 下方的 PATH 配置（Fish 为 `conf.d/huantai-cli.fish`）。
+
+### Botmux 话题链接补查
+
+本机和 SSH 远端 Botmux 记录缺少话题 ID 时，换台会参照 Codo，使用本机已安装、已登录的 `lark-cli im +messages-mget --as user` 查询根消息。补查在后台批量执行，成功后随列表刷新生效；失败每 30 秒最多重试一次，不自动登录，也不阻塞列表。需要当前飞书用户有权读取对应消息。
+
+换台只在自己的数据目录保存 `botmux-topics.json`（消息 ID 到话题 ID 的映射），不保存消息正文或凭据，不修改 Botmux 程序或会话数据库。已有有效话题链接和手动来源映射优先。

@@ -5,17 +5,22 @@ struct RemoteBotmuxRoute: Decodable {
     var scope: String?
     var chatId: String?
     var larkThreadId: String?
+    var rootMessageId: String?
 
-    var url: String? {
+    var url: String? { openingURL(topics: nil) }
+
+    func openingURL(topics: BotmuxTopics?) -> String? {
         if scope == "chat" { return SourceOpening.feishuChatURL(chatID: chatId ?? "") }
         if scope == "thread" {
-            return SourceOpening.feishuThreadURL(chatID: chatId ?? "", threadID: larkThreadId ?? "")
+            guard SourceOpening.feishuChatURL(chatID: chatId ?? "") != nil else { return nil }
+            return SourceOpening.feishuThreadURL(chatID: chatId ?? "", threadID: (larkThreadId.flatMap { BotmuxTopics.validTopic($0) ? $0 : nil }
+                ?? topics?.topic(root: rootMessageId ?? "")) ?? "")
         }
         return nil
     }
 
-    static func opening(_ routes: [Self]) -> (url: String?, reason: String?) {
-        let urls = Set(routes.compactMap(\.url))
+    static func opening(_ routes: [Self], topics: BotmuxTopics? = nil) -> (url: String?, reason: String?) {
+        let urls = Set(routes.compactMap { $0.openingURL(topics: topics) })
         if urls.count == 1 { return (urls.first, nil) }
         return (nil, urls.isEmpty ? "远端 Botmux 缺少有效的飞书聊天或话题 ID，可显式设置来源链接。" : "远端 Botmux 关联多个飞书目标，请显式设置来源链接。")
     }
@@ -35,7 +40,7 @@ enum RemoteBotmuxProgram {
                 stores[p.parent.name] = p
             if (root / 'sessions.db').exists(): stores[''] = root / 'sessions.db'
             result = {}
-            fields = ['cliSessionId', 'cliId', 'scope', 'chatId', 'larkThreadId']
+            fields = ['cliSessionId', 'cliId', 'scope', 'chatId', 'larkThreadId', 'rootMessageId']
             for path in list(stores.values())[:32]:
                 try:
                     if path.is_symlink() or root not in path.resolve().parents: continue
@@ -55,7 +60,7 @@ enum RemoteBotmuxProgram {
                         if not isinstance(row, dict) or row.get('cliId') not in (None, 'codex'): continue
                         session_id = row.get('cliSessionId')
                         if not isinstance(session_id, str) or not session_id: continue
-                        route = {key: row.get(key) if isinstance(row.get(key), str) else None for key in ('scope', 'chatId', 'larkThreadId')}
+                        route = {key: row.get(key) if isinstance(row.get(key), str) else None for key in ('scope', 'chatId', 'larkThreadId', 'rootMessageId')}
                         result.setdefault(session_id, []).append(route)
                 except (OSError, ValueError, TypeError, sqlite3.Error): continue
             return result
