@@ -101,7 +101,7 @@ final class RemoteCodexProgramTests: XCTestCase {
             store.mkdir(parents=True)
             routes = sqlite3.connect(store / 'sessions.db')
             routes.execute('CREATE TABLE sessions (row TEXT)')
-            routes.execute('INSERT INTO sessions VALUES (?)', (json.dumps(dict(cliId='codex', cliSessionId='019f9d97-401f-7942-b6ba-4cda42ca6040', scope='thread', chatId='oc_fixture', larkThreadId='omt_topic')),))
+            routes.execute('INSERT INTO sessions VALUES (?)', (json.dumps(dict(cliId='codex', cliSessionId='019f9d97-401f-7942-b6ba-4cda42ca6040', scope='thread', chatId='oc_fixture', larkThreadId='omt_topic', rootMessageId='om_root')),))
             routes.execute('INSERT INTO sessions VALUES (?)', ('malformed',))
             routes.commit()
             routes.close()
@@ -122,6 +122,9 @@ final class RemoteCodexProgramTests: XCTestCase {
         XCTAssertEqual(process.terminationStatus, 0)
         let target = RemoteTarget(
             id: "fixture", name: "合成远端", host: "example", sessionRoot: root.path, botmuxEnabled: true)
+        let rawRows = try XCTUnwrap(JSONSerialization.jsonObject(with: output) as? [[String: Any]])
+        let routes = try XCTUnwrap(rawRows.first?["botmux"] as? [[String: Any]])
+        XCTAssertEqual(routes.first?["rootMessageId"] as? String, "om_root")
         let rows = try RemoteCodexReader.decode(output, target: target)
         XCTAssertEqual(rows.count, 2)
         XCTAssertEqual(rows[0].title, "Renamed task")

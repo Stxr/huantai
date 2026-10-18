@@ -7,6 +7,7 @@ public enum SessionNavigationAction: String, Codable, CaseIterable, Sendable {
 /// Successful opens form a bounded, in-memory IDE-style history. Sorting and history are independent.
 public struct SessionNavigation: Equatable, Sendable {
     public private(set) var currentID: String?
+    private var failedTraversalID: String?
     private var history: [String] = []
     private var cursor = -1
 
@@ -18,7 +19,9 @@ public struct SessionNavigation: Equatable, Sendable {
         switch action {
         case .first: return orderedIDs.first
         case .previous, .next:
-            guard let currentID, let index = orderedIDs.firstIndex(of: currentID) else {
+            guard let anchor = failedTraversalID ?? currentID,
+                let index = orderedIDs.firstIndex(of: anchor)
+            else {
                 return orderedIDs.first
             }
             let indexAfterMove = index + (action == .previous ? -1 : 1)
@@ -28,7 +31,14 @@ public struct SessionNavigation: Equatable, Sendable {
         }
     }
 
+    /// Keep successful history/currentID intact, but allow ordered navigation past a failed open.
+    public mutating func didFailToOpen(_ id: String, action: SessionNavigationAction? = nil) {
+        guard action != .back, action != .forward else { return }
+        failedTraversalID = id
+    }
+
     public mutating func didOpen(_ id: String, action: SessionNavigationAction? = nil) {
+        failedTraversalID = nil
         if let action, action == .back || action == .forward,
             let index = historyIndex(for: action, availableIDs: [id]), history[index] == id
         {

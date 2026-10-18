@@ -21,7 +21,7 @@ struct RemoteCodexReader {
         }
     }
 
-    static func read(_ target: RemoteTarget) throws -> [SessionRecord] {
+    static func read(_ target: RemoteTarget, topics: BotmuxTopics = .shared) throws -> [SessionRecord] {
         try validate(target)
         let input = try JSONEncoder().encode(target).base64EncodedString()
         let program =
@@ -68,7 +68,7 @@ struct RemoteCodexReader {
         }
         let output = try Data(contentsOf: outputURL)
         guard output.count <= 16 * 1024 * 1024 else { throw HuantaiError.sourceUnavailable("远端结果过大。") }
-        return try decode(output, target: target)
+        return try decode(output, target: target, topics: topics)
     }
 
     static func applyingBotmuxPreference(_ session: SessionRecord, target: RemoteTarget) -> SessionRecord {
@@ -88,7 +88,9 @@ struct RemoteCodexReader {
         return "remote:" + identity + ":"
     }
 
-    static func decode(_ data: Data, target: RemoteTarget) throws -> [SessionRecord] {
+    static func decode(_ data: Data, target: RemoteTarget, topics: BotmuxTopics? = nil) throws
+        -> [SessionRecord]
+    {
         struct Row: Decodable {
             var id: String
             var title: String
@@ -102,7 +104,7 @@ struct RemoteCodexReader {
         var seen = Set<String>()
         return rows.filter { UUID(uuidString: $0.id) != nil && seen.insert($0.id).inserted }.map {
             let routes = target.botmuxEnabled ? ($0.botmux ?? []) : []
-            let opening = RemoteBotmuxRoute.opening(routes)
+            let opening = RemoteBotmuxRoute.opening(routes, topics: topics)
             return SessionRecord(
                 id: prefix(target) + $0.id, title: $0.title, cwd: $0.cwd,
                 source: routes.isEmpty ? "Codex" : "Botmux", machine: target.name,

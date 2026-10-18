@@ -11,6 +11,7 @@ final class AppModel: ObservableObject {
     private static let shortcutSchemaVersion = 4
     let loginItem: LoginItemManager
     let taskHook: TaskHookManager
+    let feishuBot: FeishuBotManager
     let isTestEnvironment = ProcessInfo.processInfo.environment["HUANTAI_TEST_MODE"] == "1"
     @Published var snapshot = IndexSnapshot(
         sessions: [], usage: UsageSummary(), sources: [], updatedAt: Date())
@@ -20,6 +21,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var appearance: String
     @Published private(set) var menuBarIconMode: MenuBarIconMode
     @Published private(set) var favoritesOnly: Bool
+    @Published private(set) var sessionRecency: SessionRecency
     @Published var sessionQuery = ""
     @Published private(set) var shortcuts: [ShortcutAction: ShortcutBinding]
     @Published private(set) var shortcutStatus = "全局快捷键尚未启用"
@@ -89,6 +91,9 @@ final class AppModel: ObservableObject {
         self.preferences = preferences
         self.openSource = openSource
         self.store = store
+        feishuBot = FeishuBotManager(
+            store: store,
+            startServices: startServices && ProcessInfo.processInfo.environment["HUANTAI_TEST_MODE"] != "1")
         let initialSourceConfiguration = (try? store.configuration()) ?? StoreConfiguration()
         sourceConfiguration = initialSourceConfiguration
         taskHook = TaskHookManager(
@@ -106,6 +111,9 @@ final class AppModel: ObservableObject {
         favoritesOnly =
             preferences.object(forKey: "favoritesOnly") == nil
             ? true : preferences.bool(forKey: "favoritesOnly")
+        sessionRecency =
+            preferences.string(forKey: "sessionRecency")
+            .flatMap(SessionRecency.init(rawValue:)) ?? .all
         if let data = preferences.data(forKey: "sessionShortcuts"),
             var saved = try? JSONDecoder().decode(
                 [ShortcutAction: ShortcutBinding].self, from: data),
@@ -175,11 +183,17 @@ final class AppModel: ObservableObject {
         snapshot.filteredSessions(
             query: sessionQuery, favoritesOnly: favoritesOnly, includeCompleted: showsCompleted
         )
-        .filter { !showsCompleted || $0.isCompleted }
+        .filter { (!showsCompleted || $0.isCompleted) && sessionRecency.includes($0) }
     }
 
     private var navigableSessions: [SessionRecord] {
         snapshot.filteredSessions(query: sessionQuery, favoritesOnly: favoritesOnly)
+            .filter { sessionRecency.includes($0) }
+    }
+
+    func setSessionRecency(_ value: SessionRecency) {
+        preferences.set(value.rawValue, forKey: "sessionRecency")
+        sessionRecency = value
     }
 
     func setShowsCompleted(_ value: Bool) { showsCompleted = value }
@@ -587,6 +601,7 @@ final class AppModel: ObservableObject {
             guard let value = session.openURL,
                 let validated = SessionStore.validatedOpenURL(value), let url = URL(string: validated)
             else {
+                navigation.didFailToOpen(session.id, action: action)
                 let reason = session.openUnavailableReason ?? "尚无有效的来源链接，可在会话右键菜单中设置来源链接。"
                 notice = reason
                 toast = SessionToast(
@@ -602,6 +617,7 @@ final class AppModel: ObservableObject {
                     guard let self else { return }
                     self.openingSession = false
                     if let error {
+                        self.navigation.didFailToOpen(session.id, action: action)
                         self.notice = error.localizedDescription
                         self.toast = SessionToast(
                             session: session,

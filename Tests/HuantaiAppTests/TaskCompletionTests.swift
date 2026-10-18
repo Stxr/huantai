@@ -82,6 +82,30 @@ final class TaskCompletionTests: XCTestCase {
     }
 
     @MainActor
+    func testNextContinuesPastUnavailableOrFailedSessionWithoutRecordingSuccess() async throws {
+        for unavailable in [true, false] {
+            let fixture = try Fixture()
+            defer { fixture.cleanup() }
+            let sessions = fixture.model.snapshot.sessions
+            if unavailable {
+                try fixture.setUnavailable(1, reason: "合成远端会话缺少跳转链接")
+            } else {
+                fixture.failedIDs.insert(sessions[1].id)
+            }
+            fixture.model.navigate(.first)
+            try await waitFor { fixture.model.navigation.currentID == sessions[0].id }
+            fixture.model.navigate(.next)
+            try await waitFor { fixture.model.toast?.kind == .warning }
+            XCTAssertEqual(fixture.model.navigation.currentID, sessions[0].id)
+            XCTAssertFalse(fixture.model.snapshot.sessions[1].isCompleted)
+            fixture.model.navigate(.next)
+            try await waitFor { fixture.model.navigation.currentID == sessions[2].id }
+            fixture.model.navigate(.back)
+            try await waitFor { fixture.model.navigation.currentID == sessions[0].id }
+        }
+    }
+
+    @MainActor
     func testRowControlsChangeStateWithoutOpeningAndPreserveCurrentContext() async throws {
         let fixture = try Fixture()
         defer { fixture.cleanup() }
@@ -646,6 +670,99 @@ final class TaskCompletionTests: XCTestCase {
         fixture.model.performShortcut(.undoCompletion)
         XCTAssertEqual(fixture.model.notice, "没有可撤回的完成记录。")
         XCTAssertEqual(fixture.opened, [first.id])
+    }
+
+    @MainActor
+    func testToastDismissesAfterOneAndAHalfSecondsWhileCompletionRemainsAvailable() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanup() }
+        let controller = SessionToastController(model: fixture.model)
+        fixture.model.navigate(.first)
+        try await waitFor { controller.panel.isVisible }
+        XCTAssertEqual(fixture.model.toast?.completionDeadline, 115)
+        try await Task.sleep(nanoseconds: 1_800_000_000)
+        XCTAssertFalse(controller.panel.isVisible)
+        fixture.now = 104
+        fixture.model.performShortcut(.completeCurrent)
+        try await waitFor { fixture.opened.count == 2 }
+        XCTAssertTrue(fixture.model.snapshot.sessions[0].isCompleted)
+    }
+
+    @MainActor
+    func testRecencyControlRendersLightAndDark() throws {
+        guard let path = ProcessInfo.processInfo.environment["HUANTAI_RENDER_RECENCY_DIR"] else { return }
+        let fixture = try Fixture()
+        defer { fixture.cleanup() }
+        let directory = URL(fileURLWithPath: path)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        fixture.model.setSessionRecency(.threeDays)
+        for theme in ["light", "dark"] {
+            let controller = NSHostingController(
+                rootView: SessionRecencyView(model: fixture.model)
+                    .frame(width: 390)
+                    .environment(\.colorScheme, theme == "dark" ? .dark : .light)
+                    .background(theme == "dark" ? Color(white: 0.14) : Color(white: 0.97)))
+            let size = controller.sizeThatFits(in: NSSize(width: 390, height: 200))
+            let window = NSWindow(
+                contentRect: NSRect(origin: NSPoint(x: -2000, y: -2000), size: size),
+                styleMask: [.borderless], backing: .buffered, defer: false)
+            window.contentViewController = controller
+            window.appearance = NSAppearance(named: theme == "dark" ? .darkAqua : .aqua)
+            window.orderBack(nil)
+            defer { window.orderOut(nil) }
+            window.layoutIfNeeded()
+            controller.view.layoutSubtreeIfNeeded()
+            window.displayIfNeeded()
+            let bitmap = try XCTUnwrap(
+                controller.view.bitmapImageRepForCachingDisplay(in: controller.view.bounds))
+            controller.view.cacheDisplay(in: controller.view.bounds, to: bitmap)
+            try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+                .write(to: directory.appendingPathComponent("recency-\(theme).png"))
+        }
+    }
+
+    @MainActor
+    func testRecencyCombinesWithOtherFiltersAndPersists() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanup() }
+        let now = Date()
+        fixture.model.snapshot.sessions[0].lastAIReplyAt = now.addingTimeInterval(-3600)
+        fixture.model.snapshot.sessions[0].isFavorite = true
+        fixture.model.snapshot.sessions[1].lastAIReplyAt = now.addingTimeInterval(-2 * 86400)
+        fixture.model.snapshot.sessions[1].isFavorite = true
+        fixture.model.snapshot.sessions[2].lastAIReplyAt = now.addingTimeInterval(-6 * 86400)
+        XCTAssertEqual(fixture.model.sessionRecency, .all)
+        fixture.model.setSessionRecency(.threeDays)
+        XCTAssertEqual(fixture.model.visibleSessions.count, 2)
+        fixture.model.setSessionRecency(.week)
+        fixture.model.setFavoritesOnly(true)
+        XCTAssertEqual(fixture.model.visibleSessions.count, 2)
+        fixture.model.sessionQuery = "合成任务 2"
+        XCTAssertEqual(fixture.model.visibleSessions.map(\.id), [fixture.model.snapshot.sessions[1].id])
+        fixture.model.snapshot.sessions[1].isCompleted = true
+        XCTAssertTrue(fixture.model.visibleSessions.isEmpty)
+        fixture.model.setShowsCompleted(true)
+        XCTAssertEqual(fixture.model.visibleSessions.count, 1)
+        fixture.model.setSessionRecency(.day)
+        XCTAssertTrue(fixture.model.visibleSessions.isEmpty)
+        let reloaded = AppModel(startServices: false, preferences: fixture.preferences, store: fixture.store)
+        XCTAssertEqual(reloaded.sessionRecency, .day)
+        fixture.preferences.set("invalid", forKey: "sessionRecency")
+        let fallback = AppModel(startServices: false, preferences: fixture.preferences, store: fixture.store)
+        XCTAssertEqual(fallback.sessionRecency, .all)
+    }
+
+    @MainActor
+    func testRecencyConstrainsShortcutNavigation() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanup() }
+        fixture.model.snapshot.sessions[1].lastAIReplyAt = Date().addingTimeInterval(-3600)
+        fixture.model.setSessionRecency(.day)
+        fixture.model.performShortcut(.first)
+        try await waitFor { fixture.opened.count == 1 }
+        XCTAssertEqual(fixture.opened, [fixture.model.snapshot.sessions[1].id])
+        fixture.model.performShortcut(.next)
+        XCTAssertEqual(fixture.opened.count, 1)
     }
 
     @MainActor

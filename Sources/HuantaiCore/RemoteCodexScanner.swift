@@ -17,7 +17,7 @@ final class RemoteCodexScanner: @unchecked Sendable {
     private var entries: [String: Entry] = [:]
     private let reader: Reader
 
-    init(reader: @escaping Reader = RemoteCodexReader.read) { self.reader = reader }
+    init(reader: @escaping Reader = { try RemoteCodexReader.read($0) }) { self.reader = reader }
 
     func scan(_ target: RemoteTarget, cached: [SessionRecord], wait: Bool = false) -> Result {
         lock.lock()

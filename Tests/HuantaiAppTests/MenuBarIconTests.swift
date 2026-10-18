@@ -54,12 +54,16 @@ final class MenuBarIconTests: XCTestCase {
         XCTAssertTrue(over.tooltip.contains("今日超出 <0.1%"))
     }
 
-    func testDailyRingHandlesPartialDaysNaturalDayChangeAndExpiredWindow() throws {
+    func testDailyRingUsesResetAnchoredDaysAndExpiredWindow() throws {
         let reset = date(8, hour: 12)
-        let halfDayAllowance = 100.0 / 14
-        let first = state(.daily, usage(halfDayAllowance / 2, reset: reset), now: date(1, hour: 18))
+        let dayAllowance = 100.0 / 7
+        let first = state(.daily, usage(dayAllowance / 2, reset: reset), now: date(1, hour: 18))
         XCTAssertEqual(try XCTUnwrap(first.fraction), 0.5, accuracy: 0.0001)
-        let last = state(.daily, usage(100 - halfDayAllowance / 2, reset: reset), now: date(8, hour: 6))
+        let afterMidnight = state(.daily, usage(dayAllowance / 2, reset: reset), now: date(2, hour: 6))
+        XCTAssertEqual(try XCTUnwrap(afterMidnight.dailyRemainingRatio), 0.5, accuracy: 0.0001)
+        let nextDay = state(.daily, usage(dayAllowance / 2, reset: reset), now: date(2, hour: 12))
+        XCTAssertEqual(try XCTUnwrap(nextDay.dailyRemainingRatio), 1.5, accuracy: 0.0001)
+        let last = state(.daily, usage(100 - dayAllowance / 2, reset: reset), now: date(8, hour: 6))
         XCTAssertEqual(try XCTUnwrap(last.fraction), 0.5, accuracy: 0.0001)
         let unchangedUsage = usage(100.0 / 7 * 3)
         XCTAssertEqual(try XCTUnwrap(state(.daily, unchangedUsage).fraction), 0, accuracy: 0.0001)
@@ -67,6 +71,17 @@ final class MenuBarIconTests: XCTestCase {
             try XCTUnwrap(state(.daily, unchangedUsage, now: date(4)).fraction), 1, accuracy: 0.0001)
         XCTAssertNil(state(.daily, unchangedUsage, now: date(8)).fraction)
         XCTAssertNil(state(.daily, UsageSummary()).fraction)
+    }
+
+    func testOfficialResetRestartsDailyAndWeeklyReferenceTogether() throws {
+        let now = date(13, hour: 13)
+        let fresh = usage(1, reset: date(20, hour: 12))
+        let daily = state(.daily, fresh, now: now)
+        XCTAssertEqual(try XCTUnwrap(daily.dailyRemainingRatio), 0.93, accuracy: 0.0001)
+        XCTAssertTrue(daily.tooltip.contains("今日参考剩余 13.3% 周额度"))
+        let weekly = state(.weekly, fresh, now: now)
+        XCTAssertEqual(weekly.fraction, 0.99)
+        XCTAssertEqual(try XCTUnwrap(weekly.dailyReferenceFraction), 6.0 / 7, accuracy: 0.0001)
     }
 
     func testWeeklyOverageOccupiesOnlyConsumedIntervalUpToDayEndMarker() throws {
