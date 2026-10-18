@@ -8,7 +8,12 @@ import HuantaiFeishu
 /// Bot commands follow the app's retained state directory unless explicitly overridden.
 func feishuCLIStore() -> SessionStore {
     if ProcessInfo.processInfo.environment["HUANTAI_HOME"] != nil { return SessionStore() }
-    let path = UserDefaults(suiteName: "local.huantai.app")?.string(forKey: "launchDirectory.HUANTAI_HOME")
+    // A CLI nested inside the .app inherits its bundle identifier. In that case
+    // a suite of the same name is rejected by Foundation; use its standard domain.
+    let preferences =
+        Bundle.main.bundleIdentifier == "local.huantai.app"
+        ? UserDefaults.standard : UserDefaults(suiteName: "local.huantai.app")
+    let path = preferences?.string(forKey: "launchDirectory.HUANTAI_HOME")
     return SessionStore(dataDirectory: path.flatMap { $0.hasPrefix("/") ? URL(fileURLWithPath: $0) : nil })
 }
 
