@@ -13,8 +13,10 @@ struct RemoteBotmuxRoute: Decodable {
         if scope == "chat" { return SourceOpening.feishuChatURL(chatID: chatId ?? "") }
         if scope == "thread" {
             guard SourceOpening.feishuChatURL(chatID: chatId ?? "") != nil else { return nil }
-            return SourceOpening.feishuThreadURL(chatID: chatId ?? "", threadID: (larkThreadId.flatMap { BotmuxTopics.validTopic($0) ? $0 : nil }
-                ?? topics?.topic(root: rootMessageId ?? "")) ?? "")
+            return SourceOpening.feishuThreadURL(
+                chatID: chatId ?? "",
+                threadID: (larkThreadId.flatMap { BotmuxTopics.validTopic($0) ? $0 : nil }
+                    ?? topics?.topic(root: rootMessageId ?? "")) ?? "")
         }
         return nil
     }

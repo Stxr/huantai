@@ -88,7 +88,9 @@ struct RemoteCodexReader {
         return "remote:" + identity + ":"
     }
 
-    static func decode(_ data: Data, target: RemoteTarget, topics: BotmuxTopics? = nil) throws -> [SessionRecord] {
+    static func decode(_ data: Data, target: RemoteTarget, topics: BotmuxTopics? = nil) throws
+        -> [SessionRecord]
+    {
         struct Row: Decodable {
             var id: String
             var title: String

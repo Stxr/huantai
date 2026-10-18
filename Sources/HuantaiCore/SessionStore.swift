@@ -795,7 +795,8 @@ public final class SessionStore: @unchecked Sendable {
                         var threadID = sqlite3_column_text(statement, 5).map { String(cString: $0) } ?? ""
                         let rootID = sqlite3_column_text(statement, 6).map { String(cString: $0) } ?? ""
                         if scope == "thread", SourceOpening.feishuChatURL(chatID: chatID) != nil,
-                            !BotmuxTopics.validTopic(threadID) {
+                            !BotmuxTopics.validTopic(threadID)
+                        {
                             threadID = botmuxTopics.topic(root: rootID) ?? threadID
                         }
                         if scope == "chat", let link = SourceOpening.feishuChatURL(chatID: chatID) {

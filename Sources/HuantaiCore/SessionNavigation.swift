@@ -20,7 +20,8 @@ public struct SessionNavigation: Equatable, Sendable {
         case .first: return orderedIDs.first
         case .previous, .next:
             guard let anchor = failedTraversalID ?? currentID,
-                let index = orderedIDs.firstIndex(of: anchor) else {
+                let index = orderedIDs.firstIndex(of: anchor)
+            else {
                 return orderedIDs.first
             }
             let indexAfterMove = index + (action == .previous ? -1 : 1)

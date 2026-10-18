@@ -50,7 +50,7 @@ try png("background.png", width: 640, height: 400, scale: 2) {
     NSGradient(starting: color(0xf6f8ff), ending: color(0xeceffc))!.draw(
         in: NSBezierPath(rect: NSRect(x: 0, y: 0, width: 640, height: 400)), angle: -90)
     text("换台", y: 320, size: 32, weight: .semibold, tint: 0x202c48)
-    text("AI 会话，随时切换。", y: 288, size: 14, weight: .regular, tint: 0x62708b)
+    text("像换台一样切换窗口。", y: 288, size: 14, weight: .regular, tint: 0x62708b)
     let arrow = NSBezierPath()
     arrow.move(to: NSPoint(x: 288, y: 196)); arrow.line(to: NSPoint(x: 352, y: 196))
     arrow.move(to: NSPoint(x: 341, y: 207)); arrow.line(to: NSPoint(x: 352, y: 196))

@@ -4,9 +4,11 @@ import Foundation
 /// Codo-compatible, optional enrichment. Only supplemental IDs belong to Huantai;
 /// Botmux databases and credentials are never modified or opened by this resolver.
 final class BotmuxTopics: @unchecked Sendable {
-    static let shared = BotmuxTopics(directory: ProcessInfo.processInfo.environment["HUANTAI_HOME"]
-        .map { URL(fileURLWithPath: $0) } ?? FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Library/Application Support/huantai"))
+    static let shared = BotmuxTopics(
+        directory: ProcessInfo.processInfo.environment["HUANTAI_HOME"]
+            .map { URL(fileURLWithPath: $0) }
+            ?? FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/huantai"))
     private let directory: URL
     private let lookup: @Sendable ([String]) throws -> Data
     private let lock = NSLock()
@@ -16,11 +18,16 @@ final class BotmuxTopics: @unchecked Sendable {
     private var pending = Set<String>()
     private var scheduled = false
 
-    init(directory: URL, lookup: @escaping @Sendable ([String]) throws -> Data = LarkTopicLookup.fetch) {
+    init(
+        directory: URL,
+        lookup: @escaping @Sendable ([String]) throws -> Data = { try LarkTopicLookup.fetch($0) }
+    ) {
         self.directory = directory
         self.lookup = lookup
-        ids = (try? JSONDecoder().decode([String: String].self,
-            from: Data(contentsOf: directory.appendingPathComponent("botmux-topics.json")))) ?? [:]
+        ids =
+            (try? JSONDecoder().decode(
+                [String: String].self,
+                from: Data(contentsOf: directory.appendingPathComponent("botmux-topics.json")))) ?? [:]
     }
 
     func topic(root: String) -> String? {
@@ -41,7 +48,10 @@ final class BotmuxTopics: @unchecked Sendable {
     private func resolvePending() {
         lock.lock()
         let batch = Array(pending.sorted().prefix(50))
-        for root in batch { pending.remove(root); attempted[root] = Date() }
+        for root in batch {
+            pending.remove(root)
+            attempted[root] = Date()
+        }
         lock.unlock()
         if let data = try? lookup(batch) {
             let found = Self.parse(data, requested: Set(batch))
@@ -50,7 +60,8 @@ final class BotmuxTopics: @unchecked Sendable {
             let snapshot = ids
             lock.unlock()
             if !found.isEmpty, let encoded = try? JSONEncoder().encode(snapshot) {
-                try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
+                try? FileManager.default.createDirectory(
+                    at: directory, withIntermediateDirectories: true,
                     attributes: [.posixPermissions: 0o700])
                 let file = directory.appendingPathComponent("botmux-topics.json")
                 // Atomic protected write; no message bodies or tokens are cached.
@@ -71,7 +82,8 @@ final class BotmuxTopics: @unchecked Sendable {
         var result: [String: String] = [:]
         for row in rows {
             guard let root = row["message_id"] as? String, requested.contains(root), validRoot(root),
-                let topic = row["thread_id"] as? String, validTopic(topic) else { continue }
+                let topic = row["thread_id"] as? String, validTopic(topic)
+            else { continue }
             result[root] = topic
         }
         return result
@@ -87,17 +99,26 @@ final class BotmuxTopics: @unchecked Sendable {
 private enum LarkTopicLookup {
     static func fetch(_ roots: [String]) throws -> Data {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
-        var directories = (ProcessInfo.processInfo.environment["PATH"] ?? "").split(separator: ":").map(String.init)
+        var directories = (ProcessInfo.processInfo.environment["PATH"] ?? "").split(separator: ":").map(
+            String.init)
         directories += [home + "/.local/bin", "/opt/homebrew/bin", "/usr/local/bin"]
         let nvm = URL(fileURLWithPath: home + "/.local/share/nvm")
-        directories += ((try? FileManager.default.contentsOfDirectory(at: nvm, includingPropertiesForKeys: nil)) ?? [])
-            .sorted { $0.lastPathComponent > $1.lastPathComponent }.map { $0.appendingPathComponent("bin").path }
-        guard let executable = directories.map({ $0 + "/lark-cli" }).first(where: {
-            FileManager.default.isExecutableFile(atPath: $0)
-        }) else { throw CocoaError(.fileNoSuchFile) }
-        let process = Process(), output = Pipe()
+        directories +=
+            ((try? FileManager.default.contentsOfDirectory(at: nvm, includingPropertiesForKeys: nil)) ?? [])
+            .sorted { $0.lastPathComponent > $1.lastPathComponent }.map {
+                $0.appendingPathComponent("bin").path
+            }
+        guard
+            let executable = directories.map({ $0 + "/lark-cli" }).first(where: {
+                FileManager.default.isExecutableFile(atPath: $0)
+            })
+        else { throw CocoaError(.fileNoSuchFile) }
+        let process = Process()
+        let output = Pipe()
         process.executableURL = URL(fileURLWithPath: executable)
-        process.arguments = ["im", "+messages-mget", "--as", "user", "--message-ids", roots.joined(separator: ",")]
+        process.arguments = [
+            "im", "+messages-mget", "--as", "user", "--message-ids", roots.joined(separator: ","),
+        ]
         process.standardInput = FileHandle.nullDevice
         process.standardOutput = output
         process.standardError = FileHandle.nullDevice
@@ -112,9 +133,12 @@ private enum LarkTopicLookup {
         }
         let fd = output.fileHandleForReading.fileDescriptor
         let flags = fcntl(fd, F_GETFL)
-        guard flags >= 0, fcntl(fd, F_SETFL, flags | O_NONBLOCK) == 0 else { throw CocoaError(.fileReadUnknown) }
+        guard flags >= 0, fcntl(fd, F_SETFL, flags | O_NONBLOCK) == 0 else {
+            throw CocoaError(.fileReadUnknown)
+        }
         let deadline = ProcessInfo.processInfo.systemUptime + 8
-        var result = Data(), bytes = [UInt8](repeating: 0, count: 8192)
+        var result = Data()
+        var bytes = [UInt8](repeating: 0, count: 8192)
         while ProcessInfo.processInfo.systemUptime < deadline {
             let count = Darwin.read(fd, &bytes, bytes.count)
             if count > 0 {
@@ -129,7 +153,9 @@ private enum LarkTopicLookup {
                 return result
             } else if errno == EAGAIN || errno == EINTR {
                 Thread.sleep(forTimeInterval: 0.01)
-            } else { throw CocoaError(.fileReadUnknown) }
+            } else {
+                throw CocoaError(.fileReadUnknown)
+            }
         }
         throw CocoaError(.fileReadUnknown)
     }
