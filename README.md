@@ -6,7 +6,7 @@
 
 Codex / Botmux 会话管理 · 彩色额度圆环 · 全局快捷键 · 原生 SwiftUI
 
-<img src="docs/public/images/platforms.svg" alt="macOS 14+ · Apple Silicon ARM64 · Swift 6 · v0.2.3" width="460">
+<img src="docs/public/images/platforms.svg" alt="macOS 14+ · Apple Silicon ARM64 · Swift 6 · v0.2.5" width="460">
 
 <br><br>
 
@@ -37,12 +37,15 @@ Codex / Botmux 会话管理 · 彩色额度圆环 · 全局快捷键 · 原生 S
 | --- | --- |
 | 🪟 **会话聚合** | 默认汇总 Codex、Botmux 与官方 DeepSeek Harness 会话；Codex 与飞书支持标题直达，来源可在设置中配置。 |
 | 💬 **回复预览** | 两行预览快速找回上下文，按 AI 最后一条可见回复的时间排序。 |
+| 📱 **飞书看板** | 用 `ht bot create` 扫码创建机器人，私聊 `/status` 查看额度、筛选会话与翻页。 |
 | ⌨️ **键盘导航** | 打开浮窗、上一个 / 下一个、历史后退 / 前进，常用动作都有全局快捷键。 |
 | ⭐ **收藏与完成** | 收藏重要任务，默认隐藏已完成项；需要时随时查看与恢复。 |
 | ◔ **额度一瞥** | 菜单栏圆环显示每日建议或每周剩余，颜色与参考点提示当前节奏。 |
 | 🧩 **三个入口** | 原生 App、`ht` CLI、本机 Web 详情共用索引、收藏与完成状态。 |
 
 切换会话后，屏幕角落的 Toast 显示当前位置，不抢焦点。在成功打开后的 **15 秒内**按 `⌘⇧D`，就能完成当前任务并进入下一项。按 `⌘⇧Z` 撤回最近一次完成并返回该会话，可连续撤回，不受15秒限制。鼠标点击收藏或完成只修改状态。
+
+列表顶部的时钟按钮支持近 1 日、3 日、7 日或全部消息，按 AI 最后回复时间筛选，快捷键导航同步使用筛选结果。
 
 设置 → 会话来源可分别开关 Codex 与 [官方 DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)，并选择数据目录。DeepSeek Harness 默认读取 `~/.dsh`，支持普通和 Zstandard 压缩会话；点击或切换其会话会直接打开官方应用，撤回完成也会返回应用，具体会话需在应用内选择。
 
@@ -86,7 +89,7 @@ Codex / Botmux 会话管理 · 彩色额度圆环 · 全局快捷键 · 原生 S
 
 支持 **Apple Silicon（ARM64）与 macOS 14 及以上**。
 
-1. 从 [Releases](https://github.com/Stxr/huantai/releases/latest) 下载 `huantai-v0.2.3-macos-arm64.dmg`。
+1. 从 [Releases](https://github.com/Stxr/huantai/releases/latest) 下载 `huantai-v0.2.5-macos-arm64.dmg`。
 2. 打开 DMG，沿箭头将左侧「换台」拖入右侧 Applications（应用程序）。
 3. 从“应用程序”打开换台，然后推出安装磁盘。升级时先退出旧版，再拖入替换；已有设置会保留。
 4. 点击菜单栏圆环，或按 `⌘⌥,` 开始换台。
@@ -105,9 +108,12 @@ ht open <会话ID或唯一前缀>         # 打开对应来源
 ht complete <会话ID>              # 完成任务
 ht reopen <会话ID>                # 恢复为未完成
 ht usage refresh --json          # 刷新额度摘要
+ht bot create --name 换台状态助手  # 扫码创建并绑定飞书机器人
 ```
 
 Web 详情随 App 运行，访问 `http://127.0.0.1:18784/`，查看筛选、连接状态与会话详情。
+
+飞书机器人创建后，打开 CLI 输出的聊天链接，发送 `/bind 配对码`，再发 `/status` 查看卡片。保持换台 App 运行，卡片即可筛选与翻页；只有已配对账号在对应私聊中能查看。详情见[飞书机器人看板](docs/public/feishu-bot.md)。
 
 ## Token 宠物
 
@@ -137,7 +143,7 @@ Swift + AppKit + SwiftUI，没有第三方 Swift 包依赖，SQLite 使用系统
 ```bash
 ./scripts/test.sh
 xcrun swift-format lint --strict --recursive Package.swift Sources Tests
-./scripts/release.sh v0.2.3
+./scripts/release.sh v0.2.5
 ```
 
 发布脚本只构建 ARM64，输出 DMG、CLI 压缩包与 SHA-256 校验文件到 `dist/`。运行数据、构建缓存、账户日志及内部审阅记录不进入仓库或发布包。
