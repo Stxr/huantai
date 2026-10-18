@@ -6,7 +6,23 @@
 
 标题使用已有来源链接：飞书话题可在飞书打开；Codex/DeepSeek Harness 本机协议需要电脑安装对应客户端，手机不支持此类本机跳转。没有经过验证的来源链接时，标题按钮禁用，不猜测链接，也不远程执行本机打开命令。
 
-## 设置中绑定
+## CLI 扫码创建（推荐）
+
+```bash
+ht bot create --name "换台状态助手"
+```
+
+命令直接发起飞书的扫码应用注册，显示二维码和创建确认链接。用飞书扫描或打开链接，在平台确认页核对应用名、企业及权限并确认创建；CLI 随后取得凭据、安全保存并绑定，不需要打开开发者后台复制 App Secret。创建请求使用最小机器人模板，只声明单聊接收、机器人发消息、`im.message.receive_v1` 及 `card.action.trigger`；新应用使用平台的长连接注册流程，创建和发布仍须服从企业审批规则。
+
+凭据取得后先保存绑定，再只读回查所需权限是否已授权并检查长连接入口。若企业审批尚未完成，会明确提示未就绪，保留已经创建的应用；再次执行相同命令只重试检查，不会再建应用。终端中断或暂时断网后重新运行，也会继续有效的待确认注册。过期链接会明确报错，不在同一次运行中重新创建。已有绑定时不会覆盖凭据或重置配对。
+
+检查通过后，打开输出的机器人聊天链接，10分钟内发送 `/bind 配对码`，再发送 `/status`。保持换台 App 运行；只有 CLI 时运行 `ht bot run`。平台创建成功、权限生效、长连接、配对和真实卡片返回是不同的验收步骤。
+
+自动化环境可运行 `ht bot create --json --no-open`：逐行输出 `authorization_required`、`bound`、`ready` 事件，包含确认 URL、二维码文件和必要配对信息，不输出 App Secret 或 device code。待确认注册保存在权限受限的本机状态中，不能把授权链接、二维码或该状态文件提交到仓库。
+
+`ht bot` 命令默认跟随已安装 App 记住的状态目录，显式设置的 `HUANTAI_HOME` 优先。设置里的“复制扫码创建命令”会包含当前 App 的准确状态目录；这样创建后 App 可自动接管监听，避免 CLI 绑定到了另一个目录。
+
+## 设置中手工绑定已有机器人
 
 1. 打开换台设置 → 飞书机器人。已有应用时填写 App ID 和 App Secret；没有应用时点击“创建应用机器人”，进入[飞书开放平台](https://open.feishu.cn/app)创建企业自建应用并开启机器人能力。
 2. 为应用启用 `im:message.p2p_msg:readonly`（读取发给机器人的单聊消息）、`im:message:send_as_bot`（以机器人身份发消息）权限。
@@ -20,7 +36,7 @@
 ## CLI
 
 ```bash
-ht bot create
+ht bot create --name "换台状态助手"
 ht bot bind cli_your_app_id --secret-stdin
 # 在终端输入密钥，输入不回显；不要把密钥直接作为命令行参数。
 ht bot status
@@ -47,3 +63,6 @@ App 与 CLI 使用同一 `HUANTAI_HOME`/默认状态目录。运行 App 时自�
 - [官方 SDK 的 WebSocket 帧定义](https://github.com/larksuite/oapi-sdk-go/blob/v3_main/ws/pbbp2.pb.go)
 
 本地测试覆盖配对过期、账号/私聊隔离、解绑与换绑、持久化去重、筛选和分页、长连接分片及异常帧、消息认证过期重试。不会在测试中连接真实机器人或发送真实消息。
+
+
+扫码注册协议参考 [Botmux 的官方 SDK 注册路径](https://github.com/deepcoldy/botmux/blob/339e2dbdb9ee9d3ccc193d89678c2884a236b8c4/src/setup/register-app.ts) 和 [飞书 Node SDK 的 registerApp / addons 文档](https://github.com/larksuite/node-sdk#app-registration)。换台使用原生 Swift HTTP、系统 zlib 和 Core Image 实现，不依赖 Botmux、Node 或浏览器自动化，也不读取 Botmux 的 Cookie／凭据。权限回查使用[无额外权限要求的租户授权状态接口](https://open.feishu.cn/document/application-v6/scope/list)。

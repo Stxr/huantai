@@ -5,6 +5,7 @@ struct FeishuBotSettingsView: View {
     @ObservedObject var manager: FeishuBotManager
     @State private var appID = ""
     @State private var secret = ""
+    @State private var copiedCreationCommand = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -52,6 +53,14 @@ struct FeishuBotSettingsView: View {
                     Toggle("只看收藏", isOn: filterBinding(\.favoritesOnly))
                     Toggle("查看已完成", isOn: filterBinding(\.completedOnly))
                 } else {
+                    Button(copiedCreationCommand ? "已复制创建命令" : "复制扫码创建命令") {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(manager.createCommand, forType: .string)
+                        copiedCreationCommand = true
+                    }
+                    Text("在终端运行创建命令，飞书扫码确认后自动绑定；已有机器人也可手工填写凭据。")
+                        .font(.caption).foregroundStyle(.secondary).fixedSize(
+                            horizontal: false, vertical: true)
                     TextField("App ID", text: $appID).textFieldStyle(.roundedBorder)
                     SecureField("App Secret", text: $secret).textFieldStyle(.roundedBorder)
                     HStack {
@@ -61,13 +70,13 @@ struct FeishuBotSettingsView: View {
                         }
                         .disabled(manager.busy || appID.isEmpty || secret.isEmpty)
                         Spacer()
-                        Link("创建应用机器人 ↗", destination: FeishuBotConfiguration.createURL)
+                        Link("开发者后台 ↗", destination: FeishuBotConfiguration.createURL)
                     }
                 }
                 if let error = manager.error { Text(error).font(.caption).foregroundStyle(.red) }
                 DisclosureGroup("机器人接入步骤") {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("1. 在飞书开放平台创建企业自建应用，启用机器人，填写 App ID 和 App Secret。")
+                        Text("1. 推荐运行 ht bot create，扫码创建并自动绑定；已有应用可填写 App ID 和 App Secret。")
                         Text("2. 开通读取机器人单聊消息和以机器人身份发消息权限。")
                         Text("3. 绑定后，在开放平台将事件与回调都设为长连接；订阅 im.message.receive_v1 与 card.action.trigger，并发布应用。")
                         Text("4. 私聊机器人发送配对指令，然后发送 /status。")
