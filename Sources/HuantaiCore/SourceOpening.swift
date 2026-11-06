@@ -5,6 +5,10 @@ import Foundation
 public enum SourceOpening {
     public static let deepSeekHarnessURL = "dsh://open"
 
+    public static func deepSeekHarnessURL(sessionID: String, dataDirectory: URL) -> String? {
+        DeepSeekHarnessOpenTarget(sessionID: sessionID, dataDir: dataDirectory.path)?.urlString
+    }
+
     public static func codexURL(sessionID: String) -> String? {
         guard UUID(uuidString: sessionID) != nil else { return nil }
         return "codex://threads/" + sessionID.lowercased()
@@ -91,8 +95,10 @@ public enum SourceOpening {
                 completion(HuantaiError.sourceUnavailable("未找到已安装的官方 DeepSeek Harness 应用，请先安装。"))
                 return
             }
+            let operation = DeepSeekHarnessOpenOperation(completion: completion)
+            let target = DeepSeekHarnessOpenTarget(url: url)
             NSWorkspace.shared.openApplication(at: application, configuration: .init()) { _, error in
-                completion(error)
+                operation.launched(error: error, target: target)
             }
         } else if url.scheme?.lowercased() == "codex" {
             guard let application = codexApplication() else {

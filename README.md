@@ -35,7 +35,7 @@ Codex / Botmux 会话管理 · 彩色额度圆环 · 全局快捷键 · 原生 S
 
 | | 换台能做什么 |
 | --- | --- |
-| 🪟 **会话聚合** | 默认汇总 Codex、Botmux 与官方 DeepSeek Harness 会话；Codex 与飞书支持标题直达，来源可在设置中配置。 |
+| 🪟 **会话聚合** | 默认汇总 Codex、Botmux 与官方 DeepSeek Harness 会话；Codex、飞书支持标题直达，DeepSeek Harness 需安装跳转插件，来源可在设置中配置。 |
 | 💬 **回复预览** | 两行预览快速找回上下文，按 AI 最后一条可见回复的时间排序。 |
 | 📱 **飞书看板** | 用 `ht bot create` 扫码创建机器人，私聊 `/status` 查看额度、筛选会话与翻页。 |
 | ⌨️ **键盘导航** | 打开浮窗、上一个 / 下一个、历史后退 / 前进，常用动作都有全局快捷键。 |
@@ -47,7 +47,7 @@ Codex / Botmux 会话管理 · 彩色额度圆环 · 全局快捷键 · 原生 S
 
 列表顶部的时钟按钮支持近 1 日、3 日、7 日或全部消息，按 AI 最后回复时间筛选，快捷键导航同步使用筛选结果。
 
-设置 → 会话来源可分别开关 Codex 与 [官方 DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)，并选择数据目录。DeepSeek Harness 默认读取 `~/.dsh`，支持普通和 Zstandard 压缩会话；点击或切换其会话会直接打开官方应用，撤回完成也会返回应用，具体会话需在应用内选择。
+设置 → 会话来源可分别开关 Codex 与 [官方 DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)，并选择数据目录。DeepSeek Harness 默认读取 `~/.dsh`，支持普通和 Zstandard 压缩会话。安装独立仓库的 [DSH 会话跳转桥](https://github.com/Stxr/dsh-session-bridge)到 DSH 的 desktop profile 后，点击、快捷键换台和撤回完成都会定位到对应普通会话，并在历史加载后确认结果；插件未就绪时显示原因。
 
 设置 → 会话来源 → 远端 Codex 支持添加、编辑和移除 SSH 主机，远端目录与本机来源独立。会话列表同时展示累计 Token、上下文与窗口占用；统计口径与连接条件见[使用指南](docs/public/usage.md#远端-codex-与会话用量)。
 
@@ -95,6 +95,18 @@ Codex / Botmux 会话管理 · 彩色额度圆环 · 全局快捷键 · 原生 S
 4. 点击菜单栏圆环，或按 `⌘⌥,` 开始换台。
 
 本版采用临时签名，尚未进行 Apple Developer ID 签名和公证。会话可读取本机 Codex 数据，或在设置中添加 SSH 远端；额度读取需要已安装且已登录的 `codex` CLI。Botmux 关联和飞书跳转需要对应的本机数据与客户端，来源不可用时会显示具体状态。
+
+### DeepSeek Harness：安装精确跳转插件
+
+**在换台中精确打开 DeepSeek Harness 会话，必须额外安装 [DSH 会话跳转桥](https://github.com/Stxr/dsh-session-bridge)。** 插件在独立仓库维护，可供其他本机应用复用；安装到 DSH 的 **desktop profile**，目前已验证 DSH **0.2.2-rc.1**。换台与 DSH 的数据目录须一致，默认都是 `~/.dsh`。
+
+先安装[官方 DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)，再在它的桌面会话中将下面这句话发给 AI：
+
+```text
+请帮我安装 DSH 会话跳转桥：先阅读 https://github.com/Stxr/dsh-session-bridge 的 README，再用 plugin_manager 将推荐的 Git 版本安装到 desktop profile，按返回结果处理重启并检查桥接是否就绪。
+```
+
+AI 会按照插件仓库说明安装固定 Git 版本；若选择本地目录安装，须保留对应目录。打开换台中的普通 DSH 会话或使用换台快捷键，即可定位到对应会话；归档会话需先恢复，子会话暂不支持。精确跳转还需要本次集成后的换台构建，现有 Release v0.2.5 安装包早于此功能，可先按下文[从源码构建](#从源码构建)使用。
 
 ### 终端也能换台
 

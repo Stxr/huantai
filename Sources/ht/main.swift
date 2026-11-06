@@ -193,7 +193,7 @@ func run() throws {
             openingError = error
             finished = true
         }
-        let deadline = Date().addingTimeInterval(15)
+        let deadline = Date().addingTimeInterval(16)
         while !finished, Date() < deadline {
             RunLoop.current.run(until: Date().addingTimeInterval(0.05))
         }

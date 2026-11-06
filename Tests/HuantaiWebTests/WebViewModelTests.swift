@@ -33,9 +33,40 @@ final class WebViewModelTests: XCTestCase {
         let chat = "lark://applink.feishu.cn/client/chat/open?openChatId=oc_fixture"
         inputs.append(chat)
         outputs.append(chat)
+        for bare in ["dsh://open", "dsh://open/", "DSH://open"] {
+            inputs.append(bare)
+            outputs.append("dsh://open")
+        }
+        let exact = "dsh://open?session=session-fixture&dataDir=%2Ffixture%2Fwith%20space%2Bdsh"
+        inputs.append(exact)
+        outputs.append(exact)
+        inputs.append("dsh://open?dataDir=/fixture/with%20space+dsh&session=session-fixture")
+        outputs.append(exact)
+        for invalid in [
+            "dsh://open?", "dsh://open#", "dsh://open?session=fixture",
+            "dsh://open?session=fixture&dataDir=relative",
+            "dsh://open?session=fixture%0A&dataDir=/tmp",
+            "dsh://open?session=fixture&dataDir=/tmp%00suffix",
+            "dsh://open?session=fixture&dataDir=/tmp%E2%80%AE",
+            "dsh://open?session=" + String(repeating: "a", count: 129) + "&dataDir=/tmp",
+            "dsh://user@open?session=fixture&dataDir=/tmp",
+            "dsh://@open?session=fixture&dataDir=/tmp",
+            exact + "&session=other", exact + "&dataDir=/other", exact + "&extra=x", exact + "#fragment",
+        ] {
+            inputs.append(invalid)
+            outputs.append(nil)
+        }
         // JavaScriptCore has no browser URL API. Use an installed Node runtime's actual URL parser.
+        let environment = ProcessInfo.processInfo.environment
+        let configuredNode = environment["DSH_NODE"].map { ($0 as NSString).expandingTildeInPath }
+        let pathNodes = (environment["PATH"] ?? "").split(separator: ":").map {
+            URL(fileURLWithPath: String($0), isDirectory: true).appendingPathComponent("node").path
+        }
+        let candidates =
+            [configuredNode].compactMap { $0 } + pathNodes
+            + ["/opt/homebrew/bin/node", "/usr/local/bin/node", "/usr/bin/node"]
         guard
-            let node = ["/opt/homebrew/bin/node", "/usr/local/bin/node", "/usr/bin/node"].first(where: {
+            let node = candidates.first(where: {
                 FileManager.default.isExecutableFile(atPath: $0)
             })
         else { throw XCTSkip("URL integration check needs an existing Node runtime; no installation") }

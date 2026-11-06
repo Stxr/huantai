@@ -249,7 +249,7 @@ public enum HuantaiError: LocalizedError {
         switch self {
         case .invalidConfiguration(let reason), .sourceUnavailable(let reason): return reason
         case .sessionNotFound: return "未找到指定会话；请先刷新索引。"
-        case .invalidOpenURL: return "打开链接仅接受已支持的 Codex、飞书聊天/话题链接或 DeepSeek Harness 应用入口。"
+        case .invalidOpenURL: return "打开链接仅接受已支持的 Codex、飞书聊天/话题链接或 DeepSeek Harness 会话/应用入口。"
         case .openUnavailable: return "该会话尚无已核验的打开链接。"
         case .invalidUsageSnapshot: return "用量快照无有效周窗口；需要官方 usedPercent、10080 分钟窗口及秒级 resetsAt。"
         }

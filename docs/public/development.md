@@ -20,6 +20,14 @@ DeepSeek Harness 使用官方 `session/event` 的 `turn/start`、`turn/end`，�
 
 默认音频随 App 放入 `Contents/Resources/CodexSounds`，本地构建与 ARM64 发布脚本均包含这份资源。用户音效在状态目录的 `codex-hooks/sounds` 中平铺为 `started.mp3`、`completed.wav`、`failed.wav`；首次准备后不补回已删除音频，播放前重新解析文件。早期子目录自动迁移，同名自定义文件优先，旧音频另存为 previous 文件。三段来源与上游许可声明随 README 保留。
 
+## DSH 精确跳转
+
+[DSH 会话跳转桥](https://github.com/Stxr/dsh-session-bridge)在独立仓库维护，包名为 `@stxr/dsh-session-bridge`，是可供多个本机应用复用的 Cordis Host/Client bundle，安装到 DSH desktop profile。Host 在自有动态端口注册本机桥接入口，向 `<DSH_HOME>/huantai-bridge/desktop.json` 原子发布独立令牌和实例信息；发现记录为0600，目录为0700。换台 Core 校验来源目录、权限、endpoint 和响应身份，唤起应用后等待至多15秒；不读取 DSH Cookie 或账号凭据。App、CLI、Web 共用 `SourceOpening`，仅收到目标 `opened` 确认才报告精确成功。
+
+Client 只在桌面主页面启动，等待 Session/Workspace 基线，先加载历史，再检查请求有效性与归档状态，取消尚未完成的工作区导航并通过 `uiWorkspace.openSession` 选中目标，核对 `mainView` 后回执。Host 对请求去重、过期和并发取代，断线不重放过期跳转。0.2.2-rc.1 的 Host `connection.rpc.handle` 存在 `webServer` 注入错误，因此插件通过自有路由适配公开 RPC JSON 信封，仍由 `connection.admit` 执行页面认证；Client 保持使用公开 `connection.rpc.call`。
+
+插件不需构建或第三方依赖；在插件目录运行 `node --test tests/*.test.js`。Swift 端测试包含真实 loopback HTTP fixture、重定向拒绝和响应体上限。协议、安装步骤及限制见[插件说明](https://github.com/Stxr/dsh-session-bridge#readme)。
+
 ## 本地构建
 
 ```bash
