@@ -53,6 +53,7 @@ struct FeishuOutboxItem: Codable {
 
 private struct FeishuSavedState: Codable {
     var binding: FeishuBotBinding?
+    var registration: FeishuRegistrationChallenge?
     var outbox: [FeishuOutboxItem] = []
     var delivered: [String] = []
 }
@@ -67,8 +68,44 @@ public final class FeishuBotConfiguration: @unchecked Sendable {
 
     public func binding() throws -> FeishuBotBinding? { try access { $0.binding } }
 
+    public func registrationChallenge() throws -> FeishuRegistrationChallenge? {
+        try access { $0.registration }
+    }
+
+    func saveRegistration(_ challenge: FeishuRegistrationChallenge) throws -> FeishuRegistrationChallenge {
+        try access(write: true) { state in
+            guard state.binding == nil else { throw FeishuBotError.message("已绑定机器人，未覆盖现有配置。") }
+            if let pending = state.registration { return pending }
+            state.registration = challenge
+            return challenge
+        }
+    }
+
+    func clearRegistration(deviceCode: String) throws {
+        try access(write: true) { state in
+            if state.registration?.deviceCode == deviceCode { state.registration = nil }
+        }
+    }
+
+    func completeRegistration(deviceCode: String, appID: String, secret: String) throws -> FeishuBotBinding {
+        let binding = try Self.newBinding(appID: appID, secret: secret, now: .now)
+        return try access(write: true) { state in
+            guard state.binding == nil, state.registration?.deviceCode == deviceCode else {
+                throw FeishuBotError.message("机器人配置已被另一操作更改，未覆盖现有绑定。")
+            }
+            state = FeishuSavedState(binding: binding)
+            return binding
+        }
+    }
+
     @discardableResult
     public func bind(appID: String, secret: String, now: Date = .now) throws -> FeishuBotBinding {
+        let binding = try Self.newBinding(appID: appID, secret: secret, now: now)
+        try access(write: true) { $0 = FeishuSavedState(binding: binding) }
+        return binding
+    }
+
+    private static func newBinding(appID: String, secret: String, now: Date) throws -> FeishuBotBinding {
         let appID = appID.trimmingCharacters(in: .whitespacesAndNewlines)
         let secret = secret.trimmingCharacters(in: .whitespacesAndNewlines)
         guard appID.range(of: "^cli_[A-Za-z0-9]+$", options: .regularExpression) != nil,
@@ -81,7 +118,6 @@ public final class FeishuBotConfiguration: @unchecked Sendable {
             pairingCode: String(UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(12))
                 .lowercased(),
             pairingExpiresAt: now.addingTimeInterval(600), filter: .init())
-        try access(write: true) { $0 = FeishuSavedState(binding: binding) }
         return binding
     }
 

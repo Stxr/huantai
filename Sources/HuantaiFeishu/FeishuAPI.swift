@@ -16,6 +16,30 @@ actor FeishuAPI {
 
     func validate() async throws { _ = try await accessToken() }
 
+    func validateDashboardScopes() async throws {
+        let access = try await accessToken()
+        var request = URLRequest(url: Self.origin.appendingPathComponent("open-apis/application/v6/scopes"))
+        request.timeoutInterval = 15
+        request.setValue("Bearer " + access, forHTTPHeaderField: "Authorization")
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+            data.count <= 2 * 1024 * 1024,
+            let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+            object["code"] as? Int == 0,
+            let payload = object["data"] as? [String: Any],
+            let scopes = payload["scopes"] as? [[String: Any]]
+        else { throw FeishuBotError.message("机器人已绑定，但应用尚未完成安装或发布。再次运行 ht bot create 可重试检查。") }
+        let granted = Set(
+            scopes.filter { $0["grant_status"] as? Int == 1 }.compactMap { $0["scope_name"] as? String })
+        let missing = FeishuAppRegistration.requiredScopes.filter { !granted.contains($0) }
+        guard missing.isEmpty else {
+            throw FeishuBotError.message(
+                "机器人已绑定，但所需权限尚未生效：" + missing.joined(separator: "、")
+                    + "。请先完成创建页面的权限确认或企业审批，再运行 ht bot create 检查；不会重复创建应用。")
+        }
+        _ = try await endpoint()
+    }
+
     struct Endpoint {
         var url: URL
         var service: UInt64
@@ -77,7 +101,7 @@ actor FeishuAPI {
         request.httpMethod = "POST"
         request.timeoutInterval = 15
         request.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
-        request.setValue("Huantai/0.2.3", forHTTPHeaderField: "User-Agent")
+        request.setValue("Huantai/0.2.5", forHTTPHeaderField: "User-Agent")
         if let token { request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization") }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         let (data, response) = try await session.data(for: request)
@@ -95,6 +119,12 @@ actor FeishuAPI {
 }
 
 public enum FeishuBotSetup {
+    public static func checkDashboard(appID: String, configuration: FeishuBotConfiguration) async throws {
+        guard let binding = try configuration.binding(), binding.appID == appID else {
+            throw FeishuBotError.message("机器人绑定已更改，请重新查看状态。")
+        }
+        try await FeishuAPI(appID: binding.appID, secret: binding.appSecret).validateDashboardScopes()
+    }
     public static func validate(appID: String, secret: String) async throws {
         try await FeishuAPI(
             appID: appID.trimmingCharacters(in: .whitespacesAndNewlines),

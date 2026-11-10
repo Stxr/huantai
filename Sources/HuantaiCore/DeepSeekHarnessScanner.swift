@@ -81,7 +81,8 @@ final class DeepSeekHarnessScanner {
                 guard stamp.size <= 64 * 1024 * 1024 else { throw HuantaiError.sourceUnavailable("会话记录过大") }
                 let data = try url.pathExtension == "zstd" ? Self.decompress(url) : Data(contentsOf: url)
                 let session = try Self.metadata(
-                    in: data, version: artifact.version, directory: url.deletingLastPathComponent())
+                    in: data, version: artifact.version, directory: url.deletingLastPathComponent(),
+                    dataRoot: home.resolvingSymlinksInPath().standardizedFileURL)
                 cache[url.path] = Cached(stamp: stamp, session: session)
                 sessions.append(session)
                 diagnostics.fullReadFiles += 1
@@ -152,12 +153,14 @@ final class DeepSeekHarnessScanner {
         }
     }
 
-    private static func metadata(in data: Data, version: Int, directory: URL) throws -> SessionRecord {
+    private static func metadata(in data: Data, version: Int, directory: URL, dataRoot: URL) throws
+        -> SessionRecord
+    {
         let lines = data.split(separator: 10)
         let decoder = JSONDecoder()
         guard let first = lines.first, let header = try? decoder.decode(Header.self, from: Data(first)),
             header.type == "session", header.version == version, (0...4).contains(version),
-            header.id.range(of: "^[A-Za-z0-9_-]{1,128}$", options: .regularExpression) != nil,
+            let openURL = SourceOpening.deepSeekHarnessURL(sessionID: header.id, dataDirectory: dataRoot),
             directory.lastPathComponent.removingPercentEncoding == header.id
         else {
             throw HuantaiError.sourceUnavailable("会话格式或标识暂不支持")
@@ -185,7 +188,8 @@ final class DeepSeekHarnessScanner {
         return SessionRecord(
             id: "dsh:" + header.id, title: title, cwd: clean(header.cwd, limit: 1000) ?? "",
             source: "DeepSeek Harness", machine: "本机", lastAIReplyAt: latest,
-            lastAIReplyPreview: preview, openURL: SourceOpening.deepSeekHarnessURL)
+            lastAIReplyPreview: preview,
+            openURL: openURL)
     }
 
     private static func clean(_ text: String?, limit: Int) -> String? {

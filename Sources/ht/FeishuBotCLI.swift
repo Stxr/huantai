@@ -6,7 +6,8 @@ import HuantaiFeishu
 
 let botHelp = """
     飞书机器人：
-      ht bot create                       打开官方应用创建入口
+      ht bot create [--name 名称] [--json] [--no-open]
+                                          扫码创建并绑定机器人，中断后再次运行可继续
       ht bot bind <AppID> --secret-stdin   从标准输入安全读取App Secret并绑定
       ht bot status [--json]              查看绑定及连接状态，不输出密钥
       ht bot pair                         生成10分钟有效的配对指令
@@ -22,7 +23,7 @@ let botHelp = """
     """
 
 func runFeishuBotCLI(_ args: [String]) throws {
-    let store = SessionStore()
+    let store = feishuCLIStore()
     let config = FeishuBotConfiguration(dataDirectory: store.dataDirectory)
     guard let command = args.first else {
         print(botHelp)
@@ -32,9 +33,7 @@ func runFeishuBotCLI(_ args: [String]) throws {
     switch command {
     case "help", "--help": print(botHelp)
     case "create":
-        guard rest.isEmpty else { throw FeishuBotError.message(botHelp) }
-        NSWorkspace.shared.open(FeishuBotConfiguration.createURL)
-        print("在飞书开放平台创建企业自建应用并开启机器人，然后运行 ht bot bind <AppID> --secret-stdin。")
+        try runBotCreation(rest, store: store, configuration: config)
     case "bind":
         guard rest.count == 2, rest[1] == "--secret-stdin" else { throw FeishuBotError.message(botHelp) }
         let secret = try readBotSecret()
@@ -111,7 +110,7 @@ private func readBotSecret() throws -> String {
     return secret
 }
 
-private func waitForBotTask(_ action: @escaping @Sendable () async throws -> Void) throws {
+func waitForBotTask(_ action: @escaping @Sendable () async throws -> Void) throws {
     let done = DispatchSemaphore(value: 0)
     final class ResultBox: @unchecked Sendable { var error: Error? }
     let result = ResultBox()

@@ -78,9 +78,10 @@ final class DeepSeekHarnessTests: XCTestCase {
         XCTAssertEqual(session.title, "官方会话标题")
         XCTAssertEqual(session.lastAIReplyAt, Date(timeIntervalSince1970: 3))
         XCTAssertEqual(session.lastAIReplyPreview, "新的可见回复")
-        XCTAssertEqual(session.openURL, SourceOpening.deepSeekHarnessURL)
+        let expected = SourceOpening.deepSeekHarnessURL(sessionID: "session-fixture", dataDirectory: home)
+        XCTAssertEqual(session.openURL, expected)
         XCTAssertNil(session.openUnavailableReason)
-        XCTAssertEqual(try store.snapshot().sessions[0].openURL, SourceOpening.deepSeekHarnessURL)
+        XCTAssertEqual(try store.snapshot().sessions[0].openURL, expected)
         XCTAssertEqual(try Data(contentsOf: url), original)
         let publicIndex = try String(
             contentsOf: store.dataDirectory.appendingPathComponent("index.json"), encoding: .utf8)
@@ -102,13 +103,26 @@ final class DeepSeekHarnessTests: XCTestCase {
         XCTAssertEqual(try store.refresh().sessions[0].lastAIReplyAt, Date(timeIntervalSince1970: 6))
     }
 
-    func testApplicationRouteRejectsSessionParametersAndUpgradesOldCachedRecords() throws {
+    func testExactRouteValidationAndUpgradeOfOldCachedRecords() throws {
         for route in ["dsh://open", "dsh://open/", "DSH://open"] {
             XCTAssertEqual(SessionStore.validatedOpenURL(route), SourceOpening.deepSeekHarnessURL)
         }
+        let expected = try XCTUnwrap(
+            SourceOpening.deepSeekHarnessURL(
+                sessionID: "session-fixture", dataDirectory: home))
+        XCTAssertEqual(SessionStore.validatedOpenURL(expected), expected)
+        XCTAssertEqual(
+            DeepSeekHarnessOpenTarget(url: try XCTUnwrap(URL(string: expected)))?.dataDir,
+            home.resolvingSymlinksInPath().standardizedFileURL.path)
         for route in [
             "dsh://open?session=fixture", "dsh://open/session-fixture", "dsh://open#fixture",
-            "dsh://user:password@open", "dsh://open:123", "dsh://other",
+            "dsh://user:password@open", "dsh://open:123", "dsh://other", "dsh://open?",
+            expected + "&session=other", expected + "&dataDir=%2Fother", expected + "&unknown=x",
+            "dsh://open?session=fixture&dataDir=relative",
+            "dsh://open?session=fixture%0A&dataDir=%2Ftmp",
+            "dsh://open?session=fixture&dataDir=%2Ftmp%00suffix",
+            "dsh://open?session=fixture&dataDir=%2Ftmp%E2%80%AE",
+            "dsh://open?session=" + String(repeating: "a", count: 129) + "&dataDir=%2Ftmp",
         ] {
             XCTAssertNil(SessionStore.validatedOpenURL(route))
         }
@@ -122,9 +136,30 @@ final class DeepSeekHarnessTests: XCTestCase {
         let reloaded = SessionStore(
             dataDirectory: store.dataDirectory, codexDirectory: store.codexDirectory,
             botmuxDirectory: store.botmuxDirectory, deepSeekHarnessDirectory: home)
-        XCTAssertEqual(try reloaded.snapshot().sessions[0].openURL, SourceOpening.deepSeekHarnessURL)
+        XCTAssertEqual(try reloaded.snapshot().sessions[0].openURL, expected)
         XCTAssertNil(try reloaded.snapshot().sessions[0].openUnavailableReason)
-        XCTAssertEqual(try reloaded.refresh().sessions[0].openURL, SourceOpening.deepSeekHarnessURL)
+        XCTAssertEqual(try reloaded.refresh().sessions[0].openURL, expected)
+    }
+
+    func testMappingsCannotCrossConfiguredDataRootsAndCachedBareRoutesBecomeExact() throws {
+        try artifact()
+        let session = try XCTUnwrap(store.refresh().sessions.first)
+        let wrong = try XCTUnwrap(
+            SourceOpening.deepSeekHarnessURL(
+                sessionID: "session-fixture", dataDirectory: root.appendingPathComponent("other")))
+        XCTAssertThrowsError(try store.setOpenMapping(id: session.id, url: wrong))
+        var cached = try store.snapshot()
+        cached.sessions[0].openURL = SourceOpening.deepSeekHarnessURL
+        try HuantaiJSON.encoder().encode(cached).write(
+            to: store.dataDirectory.appendingPathComponent("index.json"))
+        let reloaded = SessionStore(
+            dataDirectory: store.dataDirectory, codexDirectory: store.codexDirectory,
+            botmuxDirectory: store.botmuxDirectory, deepSeekHarnessDirectory: home)
+        let expected = SourceOpening.deepSeekHarnessURL(sessionID: "session-fixture", dataDirectory: home)
+        XCTAssertEqual(try reloaded.snapshot().sessions[0].openURL, expected)
+        XCTAssertEqual(try reloaded.refresh().sessions[0].openURL, expected)
+        try reloaded.setOpenMapping(id: session.id, url: SourceOpening.deepSeekHarnessURL)
+        XCTAssertEqual(try reloaded.snapshot().sessions[0].openURL, SourceOpening.deepSeekHarnessURL)
     }
 
     func testOfficialConcatenatedZstdFramesReadAllMetadataAndThenCache() throws {

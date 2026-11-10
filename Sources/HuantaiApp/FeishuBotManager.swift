@@ -4,6 +4,17 @@ import HuantaiCore
 import HuantaiFeishu
 
 final class FeishuBotManager: ObservableObject {
+    var createCommand: String {
+        func quote(_ value: String) -> String {
+            "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
+        }
+        let bundled = Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/ht")
+        let executable =
+            FileManager.default.isExecutableFile(atPath: bundled.path)
+            ? bundled.path : "/Applications/换台.app/Contents/MacOS/ht"
+        return "HUANTAI_HOME=" + quote(configuration.directory.deletingLastPathComponent().path)
+            + " " + quote(executable) + " bot create"
+    }
     @Published private(set) var binding: FeishuBotBinding?
     @Published private(set) var status = "未绑定"
     @Published private(set) var busy = false

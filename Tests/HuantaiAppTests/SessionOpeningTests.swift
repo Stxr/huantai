@@ -65,6 +65,62 @@ final class SessionOpeningTests: XCTestCase {
                 for: .back, orderedIDs: [], availableIDs: Set(model.snapshot.sessions.map(\.id))))
     }
 
+    @MainActor
+    func testHarnessExactOpenWaitsForCallbackAndUsesSessionToast() async throws {
+        let name = "huantai.dsh.open.fixture." + UUID().uuidString
+        let preferences = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { preferences.removePersistentDomain(forName: name) }
+        var acknowledge: ((Error?) -> Void)?
+        let model = AppModel(
+            startServices: false, preferences: preferences,
+            openSource: { _, completion in acknowledge = completion })
+        model.setFavoritesOnly(false)
+        let exact = SessionRecord(
+            id: "dsh:session-fixture", title: "桥接目标", cwd: "/fixture", source: "DeepSeek Harness",
+            machine: "本机",
+            openURL: SourceOpening.deepSeekHarnessURL(
+                sessionID: "session-fixture", dataDirectory: URL(fileURLWithPath: "/fixture/dsh")))
+        model.snapshot.sessions = [exact]
+        model.openSession(exact)
+        XCTAssertNil(model.navigation.currentID)
+        try XCTUnwrap(acknowledge)(nil)
+        await drainMainQueue()
+        XCTAssertEqual(model.navigation.currentID, exact.id)
+        XCTAssertEqual(model.toast?.message, "已切换会话")
+        XCTAssertEqual(model.toast?.session.id, exact.id)
+
+        var bare = exact
+        bare.openURL = SourceOpening.deepSeekHarnessURL
+        model.snapshot.sessions = [bare]
+        model.openSession(bare)
+        try XCTUnwrap(acknowledge)(nil)
+        await drainMainQueue()
+        XCTAssertEqual(model.toast?.message, "已打开 DeepSeek Harness")
+    }
+
+    @MainActor
+    func testHarnessBridgeFailureDoesNotAdvanceNavigation() async throws {
+        let name = "huantai.dsh.failure.fixture." + UUID().uuidString
+        let preferences = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { preferences.removePersistentDomain(forName: name) }
+        let model = AppModel(
+            startServices: false, preferences: preferences,
+            openSource: { _, completion in
+                completion(HuantaiError.sourceUnavailable("桌面桥接未确认打开"))
+            })
+        let session = SessionRecord(
+            id: "dsh:session-fixture", title: "桥接目标", cwd: "/fixture", source: "DeepSeek Harness",
+            machine: "本机",
+            openURL: SourceOpening.deepSeekHarnessURL(
+                sessionID: "session-fixture", dataDirectory: URL(fileURLWithPath: "/fixture/dsh")))
+        model.snapshot.sessions = [session]
+        model.openSession(session)
+        await drainMainQueue()
+        XCTAssertNil(model.navigation.currentID)
+        XCTAssertEqual(model.notice, "桌面桥接未确认打开")
+        XCTAssertTrue(model.toast?.message.contains("打开失败") == true)
+    }
+
     private func drainMainQueue() async {
         await withCheckedContinuation { continuation in
             DispatchQueue.main.async { continuation.resume() }

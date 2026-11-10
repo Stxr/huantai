@@ -139,7 +139,9 @@ public final class SessionStore: @unchecked Sendable {
                             unavailableRollouts += 1
                         }
                         let mapping =
-                            preferences.openMappings[thread.id].flatMap { Self.validatedOpenURL($0) }
+                            preferences.openMappings[thread.id].flatMap {
+                                validatedMapping($0, configuration: configuration)
+                            }
                             ?? SourceOpening.codexURL(sessionID: thread.id)
                         sessions.append(
                             SessionRecord(
@@ -187,7 +189,7 @@ public final class SessionStore: @unchecked Sendable {
                     if let title = botmux.titles[sessions[index].id] { sessions[index].title = title }
                     sessions[index].openURL =
                         preferences.openMappings[sessions[index].id]
-                        .flatMap { Self.validatedOpenURL($0) }
+                        .flatMap { validatedMapping($0, configuration: configuration) }
                         ?? botmux.openURLs[sessions[index].id]
                     if sessions[index].openURL == nil {
                         sessions[index].openUnavailableReason =
@@ -251,21 +253,23 @@ public final class SessionStore: @unchecked Sendable {
                 sessions[index].isFavorite = preferences.favorites.contains(sessions[index].id)
                 sessions[index].isCompleted = preferences.completed.contains(sessions[index].id)
                 if sessions[index].source == "DeepSeek Harness" {
-                    sessions[index].openURL =
-                        preferences.openMappings[sessions[index].id].flatMap {
-                            Self.validatedOpenURL($0)
-                        } ?? SourceOpening.deepSeekHarnessURL
+                    sessions[index].openURL = deepSeekHarnessOpenURL(
+                        for: sessions[index], mapping: preferences.openMappings[sessions[index].id],
+                        configuration: configuration)
                     sessions[index].openUnavailableReason = nil
                 } else if sessions[index].id.hasPrefix("remote:") {
                     sessions[index].openURL =
                         preferences.openMappings[sessions[index].id].flatMap {
-                            Self.validatedOpenURL($0)
-                        } ?? sessions[index].openURL.flatMap { Self.validatedOpenURL($0) }
+                            validatedMapping($0, configuration: configuration)
+                        }
+                        ?? sessions[index].openURL.flatMap {
+                            validatedMapping($0, configuration: configuration)
+                        }
                     if sessions[index].openURL != nil { sessions[index].openUnavailableReason = nil }
                 } else if sessions[index].source != "Botmux" {
                     sessions[index].openURL =
                         preferences.openMappings[sessions[index].id]
-                        .flatMap { Self.validatedOpenURL($0) }
+                        .flatMap { validatedMapping($0, configuration: configuration) }
                         ?? SourceOpening.codexURL(sessionID: sessions[index].id)
                     sessions[index].openUnavailableReason =
                         sessions[index].openURL == nil
@@ -311,15 +315,24 @@ public final class SessionStore: @unchecked Sendable {
                     snapshot.sessions[index].id)
                 snapshot.sessions[index].isCompleted = preferences.completed.contains(
                     snapshot.sessions[index].id)
-                snapshot.sessions[index].openURL =
-                    preferences.openMappings[snapshot.sessions[index].id]
-                    .flatMap { Self.validatedOpenURL($0) }
-                    ?? (snapshot.sessions[index].source == "DeepSeek Harness"
-                        ? SourceOpening.deepSeekHarnessURL
-                        : snapshot.sessions[index].source == "Botmux"
+                let previousOpenURL = snapshot.sessions[index].openURL
+                if snapshot.sessions[index].source == "DeepSeek Harness" {
+                    snapshot.sessions[index].openURL = deepSeekHarnessOpenURL(
+                        for: snapshot.sessions[index],
+                        mapping: preferences.openMappings[snapshot.sessions[index].id],
+                        configuration: configuration)
+                } else {
+                    snapshot.sessions[index].openURL =
+                        preferences.openMappings[snapshot.sessions[index].id]
+                        .flatMap { validatedMapping($0, configuration: configuration) }
+                        ?? (snapshot.sessions[index].source == "Botmux"
                             || snapshot.sessions[index].id.hasPrefix("remote:")
-                            ? snapshot.sessions[index].openURL.flatMap { Self.validatedOpenURL($0) }
+                            ? snapshot.sessions[index].openURL.flatMap {
+                                validatedMapping($0, configuration: configuration)
+                            }
                             : SourceOpening.codexURL(sessionID: snapshot.sessions[index].id))
+                }
+                if snapshot.sessions[index].openURL != previousOpenURL { needsSanitizedSave = true }
                 if snapshot.sessions[index].openURL != nil {
                     snapshot.sessions[index].openUnavailableReason = nil
                 } else if snapshot.sessions[index].openUnavailableReason == nil {
@@ -370,6 +383,10 @@ public final class SessionStore: @unchecked Sendable {
             guard let snapshot = try load(IndexSnapshot.self, name: "index.json"),
                 snapshot.sessions.contains(where: { $0.id == id })
             else { throw HuantaiError.sessionNotFound }
+            let configuration = try load(StoreConfiguration.self, name: "config.json") ?? StoreConfiguration()
+            guard validatedMapping(validated, configuration: configuration) != nil else {
+                throw HuantaiError.invalidConfiguration("DeepSeek Harness 会话链接的数据目录必须匹配来源设置。")
+            }
             var preferences = try load(Preferences.self, name: "preferences.json") ?? Preferences()
             preferences.openMappings[id] = validated
             try save(preferences, name: "preferences.json")
@@ -498,9 +515,10 @@ public final class SessionStore: @unchecked Sendable {
             let scheme = components.scheme?.lowercased(), let url = components.url
         else { return nil }
         if scheme == "dsh", components.host?.lowercased() == "open",
-            ["", "/"].contains(components.path), components.query == nil, components.fragment == nil
+            ["", "/"].contains(components.path), components.fragment == nil
         {
-            return SourceOpening.deepSeekHarnessURL
+            if components.query == nil { return SourceOpening.deepSeekHarnessURL }
+            return DeepSeekHarnessOpenTarget(url: url)?.urlString
         }
         if scheme == "codex", components.host == "threads",
             components.fragment == nil,
@@ -540,6 +558,32 @@ public final class SessionStore: @unchecked Sendable {
         else { return nil }
         return SourceOpening.feishuThreadURL(
             chatID: values["open_chat_id"] ?? "", threadID: values["open_thread_id"] ?? "")
+    }
+
+    private func deepSeekHarnessRoot(_ configuration: StoreConfiguration) -> URL {
+        (configuration.deepSeekHarnessHome.map { URL(fileURLWithPath: $0, isDirectory: true) }
+            ?? deepSeekHarnessDirectory).resolvingSymlinksInPath().standardizedFileURL
+    }
+
+    private func validatedMapping(_ string: String, configuration: StoreConfiguration) -> String? {
+        guard let value = Self.validatedOpenURL(string), let url = URL(string: value) else { return nil }
+        if let target = DeepSeekHarnessOpenTarget(url: url),
+            target.dataDir != deepSeekHarnessRoot(configuration).path
+        {
+            return nil
+        }
+        return value
+    }
+
+    private func deepSeekHarnessOpenURL(
+        for session: SessionRecord, mapping: String?, configuration: StoreConfiguration
+    ) -> String? {
+        if let mapping, let value = validatedMapping(mapping, configuration: configuration) { return value }
+        guard session.id.hasPrefix("dsh:") else { return nil }
+        // Derive cached links too: old indexes stored only the application entry, and source settings
+        // are authoritative if an index or mapping was copied from another data directory.
+        return SourceOpening.deepSeekHarnessURL(
+            sessionID: String(session.id.dropFirst(4)), dataDirectory: deepSeekHarnessRoot(configuration))
     }
 
     private struct ThreadMetadata {

@@ -619,7 +619,7 @@ final class TaskCompletionTests: XCTestCase {
     }
 
     @MainActor
-    func testHarnessApplicationOpenAllowsCompletionAndUndoReopensApplication() async throws {
+    func testHarnessBareOpenAllowsCompletionAndUndoUsesMigratedExactLink() async throws {
         let fixture = try Fixture(count: 2)
         defer { fixture.cleanup() }
         fixture.model.snapshot.sessions[0].id = "dsh:session-fixture"
@@ -631,19 +631,25 @@ final class TaskCompletionTests: XCTestCase {
         let second = fixture.model.snapshot.sessions[1]
         fixture.model.openSession(first)
         try await waitFor { fixture.model.navigation.currentID == first.id }
+        XCTAssertEqual(fixture.openedURLs, [SourceOpening.deepSeekHarnessURL])
         XCTAssertEqual(fixture.model.toast?.message, "已打开 DeepSeek Harness")
         XCTAssertNotNil(fixture.model.toast?.completionDeadline)
         fixture.model.performShortcut(.completeCurrent)
         try await waitFor { fixture.model.navigation.currentID == second.id }
-        XCTAssertTrue(try fixture.store.snapshot().sessions[0].isCompleted)
+        let migrated = try fixture.store.snapshot().sessions[0]
+        let exactURL = try XCTUnwrap(
+            SourceOpening.deepSeekHarnessURL(
+                sessionID: "session-fixture", dataDirectory: fixture.store.deepSeekHarnessDirectory))
+        XCTAssertTrue(migrated.isCompleted)
+        XCTAssertEqual(migrated.openURL, exactURL)
         fixture.now += 20
         fixture.model.performShortcut(.undoCompletion)
         try await waitFor { fixture.model.navigation.currentID == first.id }
         XCTAssertEqual(
             fixture.openedURLs,
-            [SourceOpening.deepSeekHarnessURL, second.openURL!, SourceOpening.deepSeekHarnessURL])
+            [SourceOpening.deepSeekHarnessURL, second.openURL!, exactURL])
         XCTAssertFalse(try fixture.store.snapshot().sessions[0].isCompleted)
-        XCTAssertEqual(fixture.model.toast?.message, "已撤回完成 · 已打开 DeepSeek Harness")
+        XCTAssertEqual(fixture.model.toast?.message, "已撤回完成 · 已返回会话")
         XCTAssertNotNil(fixture.model.toast?.completionDeadline)
     }
 

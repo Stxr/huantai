@@ -640,7 +640,8 @@ final class AppModel: ObservableObject {
                 discardPendingOpens()
                 return
             }
-            let applicationOnly = url.scheme?.lowercased() == "dsh"
+            let isDeepSeekHarness = url.scheme?.lowercased() == "dsh"
+            let applicationOnly = isDeepSeekHarness && url.query == nil
             openingSession = true
             openSource(url) { [weak self] error in
                 DispatchQueue.main.async {
@@ -662,7 +663,7 @@ final class AppModel: ObservableObject {
                             self.completionWindow = CompletionWindow(
                                 sessionID: session.id, deadline: self.uptime() + 15)
                         }
-                        if action != nil || completedPrevious || undoneCompletion || applicationOnly {
+                        if action != nil || completedPrevious || undoneCompletion || isDeepSeekHarness {
                             let filtered = self.navigableSessions
                             let ordered =
                                 filtered.contains(where: { $0.id == session.id })
@@ -696,7 +697,7 @@ final class AppModel: ObservableObject {
         let alert = NSAlert()
         alert.messageText = "设置来源链接"
         alert.informativeText =
-            "粘贴 Codex 会话、飞书聊天/话题链接或 dsh://open 以覆盖自动关联。DeepSeek Harness 入口直接打开应用。"
+            "粘贴 Codex 会话、飞书聊天/话题链接或 DeepSeek Harness 会话链接以覆盖自动关联。dsh://open 只打开应用。"
         let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 430, height: 24))
         field.stringValue = session.openURL ?? ""
         field.placeholderString = "已核验的来源链接"

@@ -73,6 +73,15 @@ extension WebAssets {
               if (url.username || url.password || url.port || url.hash) return null;
               if (url.protocol === 'codex:' && url.hostname === 'threads' && !url.search && /^\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(url.pathname)) return url.href;
               const entries = [...url.searchParams.entries()];
+              if (url.protocol === 'dsh:' && url.hostname.toLowerCase() === 'open' && ['', '/'].includes(url.pathname)) {
+                if (!/^dsh:\/\/open(?:[/?#]|$)/i.test(value) || value.includes('#') || /[\p{Cc}\p{Cf}]/u.test(value)) return null;
+                if (!url.search && !value.includes('?')) return 'dsh://open';
+                const dshEntries = [...new URLSearchParams(url.search.slice(1).replace(/\+/g, '%2B')).entries()];
+                if (dshEntries.length !== 2 || new Set(dshEntries.map(entry => entry[0])).size !== 2 || dshEntries.some(entry => !['session','dataDir'].includes(entry[0]))) return null;
+                const values = Object.fromEntries(dshEntries);
+                if (!/^[A-Za-z0-9_-]{1,128}$/.test(values.session) || /[\p{Cc}\p{Cf}]/u.test(values.session) || !values.dataDir.startsWith('/') || /[\p{Cc}\p{Cf}]/u.test(values.dataDir)) return null;
+                return `dsh://open?session=${encodeURIComponent(values.session)}&dataDir=${encodeURIComponent(values.dataDir)}`;
+              }
               if (!['https:','lark:','x-feishu:'].includes(url.protocol) || url.hostname !== 'applink.feishu.cn') return null;
               const validChatID = value => value.length <= 128 && /^oc_[A-Za-z0-9]+$/.test(value);
               if (url.pathname === '/client/chat/open' && entries.length === 1 && entries[0][0] === 'openChatId' && validChatID(entries[0][1])) return `lark://applink.feishu.cn/client/chat/open?openChatId=${encodeURIComponent(entries[0][1])}`;

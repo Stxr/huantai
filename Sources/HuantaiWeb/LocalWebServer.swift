@@ -53,7 +53,7 @@ public final class LocalWebServer {
                         completed.signal()
                     }
                 }
-                guard completed.wait(timeout: .now() + 5) == .success else {
+                guard completed.wait(timeout: .now() + 16) == .success else {
                     throw HuantaiError.openUnavailable
                 }
                 lock.lock()
@@ -140,7 +140,7 @@ public final class LocalWebServer {
         }
         connection.start(queue: queue)
         receive(on: connection, id: id, accumulated: Data())
-        queue.asyncAfter(deadline: .now() + 10) { [weak self, weak connection] in
+        queue.asyncAfter(deadline: .now() + 20) { [weak self, weak connection] in
             guard let self, let connection, self.connections[id] != nil else { return }
             connection.cancel()
             self.connections.removeValue(forKey: id)
