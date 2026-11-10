@@ -67,6 +67,8 @@ final class RemoteCodexProgramTests: XCTestCase {
             (root / 'sessions').mkdir()
             log = root / 'sessions' / 'rollout.jsonl'
             log.write_text(json.dumps(dict(timestamp='2026-10-21T08:00:00Z', type='response_item', payload=dict(type='message', role='assistant', phase='final_answer', content=[dict(type='output_text', text='BOTMUX_NOTHING_TO_SEND')]))))
+            with log.open('a') as f:
+                f.write('\\n' + json.dumps(dict(timestamp='2026-10-21T09:00:00Z', type='event_msg', payload=dict(type='task_complete', last_agent_message='BOTMUX_NOTHING_TO_SEND\\n\\nBOTMUX_NO_REPLY'))))
             db = sqlite3.connect(root / 'state_5.sqlite')
             db.execute('CREATE TABLE threads (id TEXT, title TEXT, cwd TEXT, rollout_path TEXT)')
             ids = ['019f9d97-401f-7942-b6ba-4cda42ca604' + str(i) for i in range(3)]

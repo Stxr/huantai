@@ -61,7 +61,7 @@ enum RemoteCodexProgram {
                         elif event.get('type') == 'event_msg' and payload.get('type') == 'task_complete':
                             body = payload.get('last_agent_message')
                             date = payload.get('completed_at') or date
-                        if isinstance(body, str) and body.strip() != 'BOTMUX_NOTHING_TO_SEND' and body.strip() and date:
+                        if isinstance(body, str) and any(part not in ('BOTMUX_NOTHING_TO_SEND', 'BOTMUX_NO_REPLY') for part in body.split()) and date:
                             value = timestamp(date)
                             if value is not None and (latest is None or value >= latest): latest, text = value, ' '.join(body.split())[:320]
                     except (ValueError, TypeError, AttributeError, OverflowError): pass

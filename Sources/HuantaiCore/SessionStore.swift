@@ -510,8 +510,10 @@ public final class SessionStore: @unchecked Sendable {
                 guard items.count == 1, items[0].name == "hostId",
                     let hostID = items[0].value,
                     hostID.hasPrefix("remote-ssh-discovered:"),
-                    let remoteHost = String(hostID.dropFirst("remote-ssh-discovered:".count)).removingPercentEncoding,
-                    SourceOpening.codexURL(sessionID: String(components.path.dropFirst()),
+                    let remoteHost = String(hostID.dropFirst("remote-ssh-discovered:".count))
+                        .removingPercentEncoding,
+                    SourceOpening.codexURL(
+                        sessionID: String(components.path.dropFirst()),
                         remoteHost: remoteHost) != nil
                 else { return nil }
             }
@@ -562,7 +564,8 @@ public final class SessionStore: @unchecked Sendable {
         }
     }
     private struct ScanCache: Codable, Equatable {
-        static let currentVersion = 3
+        // Recompute replies previously advanced by Botmux silent control markers.
+        static let currentVersion = 4
         var version: Int? = currentVersion
         var entries: [String: ScanEntry] = [:]
     }

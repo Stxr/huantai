@@ -82,25 +82,30 @@ public enum RolloutReplyScanner {
             event.payload?.phase == nil
                 || ["commentary", "final_answer", "final"].contains(event.payload?.phase ?? "")
         {
-            guard let date = event.timestamp?.date(using: dates) else { return nil }
-            return (date, previewText(event.payload?.content?.compactMap(\.text).joined(separator: " ")))
+            guard let date = event.timestamp?.date(using: dates),
+                let preview = previewText(event.payload?.content?.compactMap(\.text).joined(separator: " "))
+            else { return nil }
+            return (date, preview)
         }
         if event.type == "event_msg", event.payload?.type == "task_complete",
             event.payload?.lastAgentMessage?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
         {
             guard
                 let date = event.payload?.completedAt?.date(using: dates)
-                    ?? event.timestamp?.date(using: dates)
+                    ?? event.timestamp?.date(using: dates),
+                let preview = previewText(event.payload?.lastAgentMessage)
             else { return nil }
-            return (date, previewText(event.payload?.lastAgentMessage))
+            return (date, preview)
         }
         return nil
     }
 
     private static func previewText(_ text: String?) -> String? {
         guard let text else { return nil }
-        let plain = text.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
-        guard !plain.isEmpty else { return nil }
+        let parts = text.split(whereSeparator: { $0.isWhitespace })
+        guard parts.contains(where: { $0 != "BOTMUX_NOTHING_TO_SEND" && $0 != "BOTMUX_NO_REPLY" })
+        else { return nil }
+        let plain = parts.joined(separator: " ")
         return String(plain.prefix(320))
     }
 
