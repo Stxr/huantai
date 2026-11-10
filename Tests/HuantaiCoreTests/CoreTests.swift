@@ -66,6 +66,35 @@ final class CoreTests: XCTestCase {
     }
     private func date(_ text: String) -> Date { ISO8601DateFormatter().date(from: text)! }
 
+    func testDeepSearchReadsOldQuestionsAndArchivedAnswersWithoutPersistingBodies() throws {
+        let question =
+            #"{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"UniqueQuestionOnly"}]}}"#
+        let answer =
+            #"{"type":"response_item","payload":{"type":"message","role":"assistant","phase":"final_answer","content":[{"type":"output_text","text":"ArchivedAnswerOnly"}]}}"#
+        try addThread("question", events: [question])
+        let archived = codex.appendingPathComponent("archived_sessions/answer.jsonl")
+        try Data(answer.utf8).write(to: archived)
+        try addThread("archived", customPath: archived)
+        let store = store()
+        _ = try store.refresh()
+        XCTAssertEqual(store.search(query: "uniquequestiononly").matchingIDs, ["question"])
+        XCTAssertEqual(store.search(query: "ArchivedAnswerOnly").matchingIDs, ["archived"])
+        XCTAssertTrue(store.search(query: " ").matchingIDs.isEmpty)
+        XCTAssertTrue(store.search(query: "UniqueQuestionOnly", isCancelled: { true }).matchingIDs.isEmpty)
+        let saved = try String(contentsOf: index.appendingPathComponent("index.json"), encoding: .utf8)
+        XCTAssertFalse(saved.contains("UniqueQuestionOnly"))
+    }
+
+    func testDeepSearchRejectsEscapingRolloutAndReportsPartialResults() throws {
+        let outside = root.appendingPathComponent("outside.jsonl")
+        try Data(#"{"type":"event_msg","payload":{"type":"user_message","message":"outside-secret"}}"#.utf8)
+            .write(to: outside)
+        try addThread("outside", customPath: outside)
+        let result = store().search(query: "outside-secret")
+        XCTAssertTrue(result.matchingIDs.isEmpty)
+        XCTAssertFalse(result.warnings.isEmpty)
+    }
+
     func testVisibleAIReplyIncludesProgressAndIgnoresUserAnalysisAndMTime() throws {
         let path = try addThread(
             "one",
@@ -152,6 +181,89 @@ final class CoreTests: XCTestCase {
                 "{\"timestamp\":\"2026-01-06T00:00:00Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"task_complete\",\"last_agent_message\":\" \"}}",
             ])
         XCTAssertEqual(try RolloutReplyScanner.lastAIReply(in: path), date("2026-01-01T00:00:00Z"))
+    }
+
+    func testSilentMarkersDoNotAdvanceRepliesAcrossFullAndIncrementalScans() throws {
+        let visible = message("2026-01-01T00:00:00Z")
+        let silent = message("2026-01-03T00:00:00Z").replacingOccurrences(
+            of: "SYNTHETIC_VISIBLE_REPLY", with: "  BOTMUX_NOTHING_TO_SEND  ")
+        let completion =
+            #"{"timestamp":"2026-01-04T00:00:00Z","type":"event_msg","payload":{"type":"task_complete","last_agent_message":"BOTMUX_NOTHING_TO_SEND"}}"#
+        let path = try addThread("poller", events: [visible])
+        try addThread("recent", events: [message("2026-01-02T00:00:00Z")])
+        try addThread("silent-only", events: [silent, completion])
+        let reader = store()
+        _ = try reader.refresh()
+        let handle = try FileHandle(forWritingTo: path)
+        try handle.seekToEnd()
+        try handle.write(contentsOf: Data((silent + "\n" + completion + "\n").utf8))
+        try handle.close()
+        let incremental = try reader.refresh()
+        XCTAssertEqual(incremental.sessions.map(\.id), ["recent", "poller", "silent-only"])
+        let poller = try XCTUnwrap(incremental.sessions.first { $0.id == "poller" })
+        XCTAssertEqual(poller.lastAIReplyAt, date("2026-01-01T00:00:00Z"))
+        XCTAssertEqual(poller.lastAIReplyPreview, "SYNTHETIC_VISIBLE_REPLY")
+        XCTAssertEqual(incremental.scan?.appendedFiles, 1)
+        XCTAssertNil(incremental.sessions.last?.lastAIReplyAt)
+        XCTAssertNil(incremental.sessions.last?.lastAIReplyPreview)
+        XCTAssertEqual(try reader.refresh().scan?.bytesRead, 0)
+        // A replacement forces a full scan, including a valid event without a trailing newline.
+        try Data((visible + "\n" + silent + "\n" + completion).utf8).write(to: path, options: .atomic)
+        XCTAssertEqual(try reader.refresh().sessions.first { $0.id == "poller" }, poller)
+        // Mentioning the marker inside an ordinary answer must remain visible.
+        let explanation = message("2026-01-05T00:00:00Z").replacingOccurrences(
+            of: "SYNTHETIC_VISIBLE_REPLY", with: "解释 BOTMUX_NOTHING_TO_SEND 标记")
+        try Data((explanation + "\n").utf8).write(to: path, options: .atomic)
+        XCTAssertEqual(
+            try reader.refresh().sessions.first?.lastAIReplyPreview, "解释 BOTMUX_NOTHING_TO_SEND 标记")
+    }
+
+    func testOnlySilentTokensAndEmptyMessagesAreNotReplies() throws {
+        for body in [
+            "", "  ", "BOTMUX_NOTHING_TO_SEND", "BOTMUX_NO_REPLY",
+            "BOTMUX_NOTHING_TO_SEND\n\nBOTMUX_NO_REPLY\nBOTMUX_NOTHING_TO_SEND",
+        ] {
+            let event: [String: Any] = [
+                "timestamp": "2026-01-01T00:00:00Z", "type": "response_item",
+                "payload": [
+                    "type": "message", "role": "assistant", "phase": "final_answer",
+                    "content": [["text": body]],
+                ],
+            ]
+            XCTAssertNil(RolloutReplyScanner.replyDate(in: try JSONSerialization.data(withJSONObject: event)))
+            let completion: [String: Any] = [
+                "timestamp": "2026-01-01T00:00:00Z", "type": "event_msg",
+                "payload": ["type": "task_complete", "last_agent_message": body],
+            ]
+            XCTAssertNil(
+                RolloutReplyScanner.replyDate(in: try JSONSerialization.data(withJSONObject: completion)))
+        }
+    }
+
+    func testLegacySilentReplyCacheIsRecomputedWithoutLosingPreferences() throws {
+        let silent = message("2026-01-03T00:00:00Z").replacingOccurrences(
+            of: "SYNTHETIC_VISIBLE_REPLY", with: "BOTMUX_NOTHING_TO_SEND")
+        try addThread("poller", events: [message("2026-01-01T00:00:00Z"), silent])
+        let reader = store()
+        _ = try reader.refresh()
+        try reader.setFavorite(id: "poller", value: true)
+        try reader.setCompleted(id: "poller", value: true)
+        let cacheURL = index.appendingPathComponent("reply-cache.json")
+        var cache = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(contentsOf: cacheURL)) as? [String: Any])
+        cache["version"] = 3
+        var entries = try XCTUnwrap(cache["entries"] as? [String: [String: Any]])
+        entries["poller"]?["lastAIReplyAt"] = "2026-01-03T00:00:00Z"
+        entries["poller"]?["preview"] = "BOTMUX_NOTHING_TO_SEND"
+        cache["entries"] = entries
+        try JSONSerialization.data(withJSONObject: cache).write(to: cacheURL)
+        let migrated = try store().refresh()
+        XCTAssertEqual(migrated.scan?.fullReadFiles, 1)
+        XCTAssertEqual(migrated.sessions.first?.lastAIReplyAt, date("2026-01-01T00:00:00Z"))
+        XCTAssertEqual(migrated.sessions.first?.lastAIReplyPreview, "SYNTHETIC_VISIBLE_REPLY")
+        XCTAssertEqual(migrated.sessions.first?.isFavorite, true)
+        XCTAssertEqual(migrated.sessions.first?.isCompleted, true)
+        XCTAssertEqual(try store().refresh().scan?.bytesRead, 0)
     }
 
     func testStableSortNilRepliesLastAndSearchOnlyTitleAndCwd() throws {
@@ -329,7 +441,7 @@ final class CoreTests: XCTestCase {
         try Data(short.utf8).write(to: path)
         let truncated = try instance.refresh()
         XCTAssertEqual(truncated.scan?.fullReadFiles, 1)
-        XCTAssertEqual(truncated.sessions[0].lastAIReplyAt, date("2026-01-01T00:00:00Z"))
+        XCTAssertNil(truncated.sessions[0].lastAIReplyAt, "An empty assistant message is not a visible reply")
     }
 
     func testLegacyFinalOnlyCacheMigratesWithoutTrustingItsTimestamp() throws {

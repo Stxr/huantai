@@ -96,6 +96,30 @@ final class DeepSeekHarnessScanner {
         return (sessions, unreadable)
     }
 
+    func search(query: String, home: URL, isCancelled: () -> Bool) throws -> SessionSearchResult {
+        var diagnostics = ScanDiagnostics()
+        let scan = try scan(home: home, diagnostics: &diagnostics)
+        var result = SessionSearchResult()
+        var unreadable = scan.unreadable
+        for (path, artifact) in cache {
+            if isCancelled() { return result }
+            do {
+                let url = URL(fileURLWithPath: path)
+                let matched: Bool
+                if url.pathExtension == "zstd" {
+                    matched = try Self.decompress(url).split(separator: 10).contains {
+                        !isCancelled() && SessionMessageSearch.matches(query, line: Data($0))
+                    }
+                } else {
+                    matched = try SessionMessageSearch.contains(query, in: url, isCancelled: isCancelled)
+                }
+                if matched { result.matchingIDs.insert(artifact.session.id) }
+            } catch { unreadable += 1 }
+        }
+        if unreadable > 0 { result.warnings.append("DeepSeek Harness \(unreadable) 个会话正文不可读") }
+        return result
+    }
+
     private static func generation(_ name: String) -> Int? {
         let plain = name.hasSuffix(".zstd") ? String(name.dropLast(5)) : name
         if plain == "session.jsonl" { return 0 }
@@ -150,9 +174,10 @@ final class DeepSeekHarnessScanner {
                 title = value
             }
             guard event.type == "assistant/message", event.data?.message?.role == "assistant",
-                let text = clean(
-                    event.data?.message?.content?.filter { $0.type == "text" }.compactMap(\.text).joined(
-                        separator: " "), limit: 320),
+                let body = event.data?.message?.content?.filter({ $0.type == "text" }).compactMap(\.text)
+                    .joined(separator: " "),
+                !VisibleReplyText.isSilent(body),
+                let text = clean(body, limit: 320),
                 let time = event.time, time.isFinite, time > 0
             else { continue }
             let date = Date(timeIntervalSince1970: time / 1000)

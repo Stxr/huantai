@@ -14,7 +14,13 @@ final class AppModel: ObservableObject {
     let feishuBot: FeishuBotManager
     let isTestEnvironment = ProcessInfo.processInfo.environment["HUANTAI_TEST_MODE"] == "1"
     @Published var snapshot = IndexSnapshot(
-        sessions: [], usage: UsageSummary(), sources: [], updatedAt: Date())
+        sessions: [], usage: UsageSummary(), sources: [], updatedAt: Date()) {
+        didSet {
+            if isSearchingSessions && Set(oldValue.sessions.map(\.id)) != Set(snapshot.sessions.map(\.id)) {
+                searchController.update(query: sessionQuery)
+            }
+        }
+    }
     @Published var refreshing = false
     @Published var notice: String?
     @Published var webReady = false
@@ -22,7 +28,19 @@ final class AppModel: ObservableObject {
     @Published private(set) var menuBarIconMode: MenuBarIconMode
     @Published private(set) var favoritesOnly: Bool
     @Published private(set) var sessionRecency: SessionRecency
-    @Published var sessionQuery = ""
+    @Published var sessionQuery = "" {
+        didSet {
+            if sessionQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+                != oldValue.trimmingCharacters(in: .whitespacesAndNewlines) {
+                searchController.update(query: sessionQuery)
+            }
+        }
+    }
+    @Published private(set) var searchState = SessionSearchState()
+    private lazy var searchController = SessionSearchController(
+        search: { [store] query, cancelled, update in
+            store.search(query: query, isCancelled: cancelled, update: update)
+        }, changed: { [weak self] in self?.searchState = $0 })
     @Published private(set) var shortcuts: [ShortcutAction: ShortcutBinding]
     @Published private(set) var shortcutStatus = "全局快捷键尚未启用"
     @Published private(set) var recordingAction: ShortcutAction?
@@ -179,16 +197,28 @@ final class AppModel: ObservableObject {
         menuBarIconMode = value
     }
 
-    var visibleSessions: [SessionRecord] {
-        snapshot.filteredSessions(
-            query: sessionQuery, favoritesOnly: favoritesOnly, includeCompleted: showsCompleted
-        )
-        .filter { (!showsCompleted || $0.isCompleted) && sessionRecency.includes($0) }
+    var isSearchingSessions: Bool {
+        !sessionQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    private var navigableSessions: [SessionRecord] {
-        snapshot.filteredSessions(query: sessionQuery, favoritesOnly: favoritesOnly)
-            .filter { sessionRecency.includes($0) }
+    var visibleSessions: [SessionRecord] {
+        filteredSessions(includeCompleted: isSearchingSessions || showsCompleted)
+            .filter { isSearchingSessions || !showsCompleted || $0.isCompleted }
+    }
+
+    private var navigableSessions: [SessionRecord] { filteredSessions(includeCompleted: false) }
+
+    private func filteredSessions(includeCompleted: Bool) -> [SessionRecord] {
+        let term = sessionQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        return snapshot.filteredSessions(
+            favoritesOnly: !isSearchingSessions && favoritesOnly,
+            includeCompleted: includeCompleted)
+            .filter { session in
+                if term.isEmpty { return sessionRecency.includes(session) }
+                return session.title.localizedCaseInsensitiveContains(term)
+                    || session.cwd.localizedCaseInsensitiveContains(term)
+                    || (searchState.query == term && searchState.result.matchingIDs.contains(session.id))
+            }
     }
 
     func setSessionRecency(_ value: SessionRecency) {

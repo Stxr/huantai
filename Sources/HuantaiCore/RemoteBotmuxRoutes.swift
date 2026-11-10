@@ -42,7 +42,7 @@ enum RemoteBotmuxProgram {
                 stores[p.parent.name] = p
             if (root / 'sessions.db').exists(): stores[''] = root / 'sessions.db'
             result = {}
-            fields = ['cliSessionId', 'cliId', 'scope', 'chatId', 'larkThreadId', 'rootMessageId']
+            fields = ['sessionId', 'cliSessionId', 'cliId', 'scope', 'chatId', 'larkThreadId', 'rootMessageId']
             for path in list(stores.values())[:32]:
                 try:
                     if path.is_symlink() or root not in path.resolve().parents: continue
@@ -63,6 +63,7 @@ enum RemoteBotmuxProgram {
                         session_id = row.get('cliSessionId')
                         if not isinstance(session_id, str) or not session_id: continue
                         route = {key: row.get(key) if isinstance(row.get(key), str) else None for key in ('scope', 'chatId', 'larkThreadId', 'rootMessageId')}
+                        route['sentReply'], route['sentPreview'] = botmux_sent_reply(root, row.get('sessionId'))
                         result.setdefault(session_id, []).append(route)
                 except (OSError, ValueError, TypeError, sqlite3.Error): continue
             return result

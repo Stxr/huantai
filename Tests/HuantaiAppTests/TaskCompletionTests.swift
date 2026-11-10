@@ -328,7 +328,7 @@ final class TaskCompletionTests: XCTestCase {
         try await waitFor { fixture.model.navigation.currentID == first.id }
         fixture.model.performShortcut(.completeCurrent)
         try await waitFor { fixture.model.snapshot.sessions[0].isCompleted }
-        XCTAssertTrue(fixture.model.visibleSessions.isEmpty)
+        XCTAssertEqual(fixture.model.visibleSessions.count, 1, "Search keeps completed matches visible")
         XCTAssertEqual(fixture.opened.count, 1)
         XCTAssertTrue(fixture.model.toast?.message.contains("没有下一条") == true)
         fixture.model.setShowsCompleted(true)
@@ -746,10 +746,12 @@ final class TaskCompletionTests: XCTestCase {
         fixture.model.sessionQuery = "合成任务 2"
         XCTAssertEqual(fixture.model.visibleSessions.map(\.id), [fixture.model.snapshot.sessions[1].id])
         fixture.model.snapshot.sessions[1].isCompleted = true
-        XCTAssertTrue(fixture.model.visibleSessions.isEmpty)
+        XCTAssertEqual(fixture.model.visibleSessions.count, 1, "Search includes completed sessions")
         fixture.model.setShowsCompleted(true)
         XCTAssertEqual(fixture.model.visibleSessions.count, 1)
         fixture.model.setSessionRecency(.day)
+        XCTAssertEqual(fixture.model.visibleSessions.count, 1, "Search ignores the selected date range")
+        fixture.model.sessionQuery = ""
         XCTAssertTrue(fixture.model.visibleSessions.isEmpty)
         let reloaded = AppModel(startServices: false, preferences: fixture.preferences, store: fixture.store)
         XCTAssertEqual(reloaded.sessionRecency, .day)

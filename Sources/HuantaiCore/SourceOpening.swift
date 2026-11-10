@@ -9,9 +9,23 @@ public enum SourceOpening {
         DeepSeekHarnessOpenTarget(sessionID: sessionID, dataDir: dataDirectory.path)?.urlString
     }
 
-    public static func codexURL(sessionID: String) -> String? {
+    public static func codexURL(sessionID: String, remoteHost: String? = nil) -> String? {
         guard UUID(uuidString: sessionID) != nil else { return nil }
-        return "codex://threads/" + sessionID.lowercased()
+        var components = URLComponents(string: "codex://threads/" + sessionID.lowercased())!
+        if let remoteHost {
+            guard !remoteHost.isEmpty,
+                remoteHost.range(of: "^[A-Za-z0-9_][A-Za-z0-9_.@:-]*$", options: .regularExpression) != nil
+            else { return nil }
+            // Codex constructs discovered host IDs with encodeURIComponent(SSH alias).
+            let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_.!~*'()"))
+            guard let encodedHost = remoteHost.addingPercentEncoding(withAllowedCharacters: allowed) else {
+                return nil
+            }
+            components.queryItems = [
+                URLQueryItem(name: "hostId", value: "remote-ssh-discovered:" + encodedHost)
+            ]
+        }
+        return components.url?.absoluteString
     }
 
     public static func feishuChatURL(chatID: String) -> String? {

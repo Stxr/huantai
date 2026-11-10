@@ -1,8 +1,8 @@
 /// Read-only remote extractor. Only bounded previews and usage samples leave the host.
 enum RemoteCodexProgram {
     static let script =
-        RemoteBotmuxProgram.script + "\n" + #"""
-            import pathlib, sqlite3, json, datetime, math
+        RemoteBotmuxReplyProgram.script + "\n" + RemoteBotmuxProgram.script + "\n" + #"""
+            import pathlib, sqlite3, json, datetime, math, re
             home = pathlib.Path(root_arg).expanduser().resolve()
             dbs = [p for p in home.glob('state_*.sqlite') if p.stem[6:].isdigit()]
             if not dbs: raise RuntimeError('Codex index missing')
@@ -49,6 +49,14 @@ enum RemoteCodexProgram {
                 result = value if type(value) in (int, float) else datetime.datetime.fromisoformat(value.replace('Z', '+00:00')).timestamp()
                 return result if math.isfinite(result) else None
 
+            def silent_reply(body):
+                start = body.rfind('<oai-mem-citation>')
+                if start >= 0 and (start == 0 or body[start - 1] in '\r\n'):
+                    pattern = r'<oai-mem-citation>\s*<citation_entries>(?:(?!</citation_entries>)[\s\S])*?</citation_entries>\s*<rollout_ids>(?:(?!</rollout_ids>)[\s\S])*?</rollout_ids>\s*</oai-mem-citation>\s*'
+                    if re.fullmatch(pattern, body[start:]): body = body[:start]
+                parts = body.split()
+                return bool(parts) and all(part in ('BOTMUX_NOTHING_TO_SEND', 'BOTMUX_NO_REPLY') for part in parts)
+
             def reply_preview(lines):
                 latest, text = None, None
                 for line in lines:
@@ -61,7 +69,7 @@ enum RemoteCodexProgram {
                         elif event.get('type') == 'event_msg' and payload.get('type') == 'task_complete':
                             body = payload.get('last_agent_message')
                             date = payload.get('completed_at') or date
-                        if body and date:
+                        if isinstance(body, str) and body.strip() and not silent_reply(body) and date:
                             value = timestamp(date)
                             if value is not None and (latest is None or value >= latest): latest, text = value, ' '.join(body.split())[:320]
                     except (ValueError, TypeError, AttributeError, OverflowError): pass
@@ -95,6 +103,10 @@ enum RemoteCodexProgram {
             rows = []
             for row in c.execute('SELECT id, title, cwd, rollout_path FROM threads'):
                 reply, text, usage = read_rollout(row['rollout_path'])
+                for route in routes.get(row['id'], []):
+                    sent = route.get('sentReply')
+                    if sent is not None and (reply is None or sent >= reply):
+                        reply, text = sent, route.get('sentPreview')
                 rows.append(dict(id=row['id'], title=titles.get(row['id'], row['title'] or '')[:1000],
                                  cwd=(row['cwd'] or '')[:1000], reply=reply, preview=text, tokenUsage=usage, botmux=routes.get(row['id'], [])))
             print(json.dumps(rows, allow_nan=False))

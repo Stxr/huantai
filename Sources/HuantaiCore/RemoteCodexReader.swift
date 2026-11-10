@@ -27,6 +27,28 @@ struct RemoteCodexReader {
         let program =
             "import base64\nargs = __import__('json').loads(base64.b64decode('\(input)'))\nroot_arg = args['sessionRoot']\nbotmux_root_arg = (args.get('botmuxRoot') or '~/.botmux/data') if args['botmuxEnabled'] else None\n"
             + RemoteCodexProgram.script
+        return try decode(run(program, target: target), target: target, topics: topics)
+    }
+
+    static func search(
+        _ target: RemoteTarget, query: String, isCancelled: @escaping () -> Bool
+    ) throws -> SessionSearchResult {
+        try validate(target)
+        let arguments = try JSONEncoder().encode(["root": target.sessionRoot, "query": query]).base64EncodedString()
+        let program = "import base64, json\nargs = json.loads(base64.b64decode('\(arguments)'))\n"
+            + RemoteSessionSearchProgram.script
+        struct Result: Decodable { var ids: [String]; var unreadable: Int }
+        let result = try JSONDecoder().decode(
+            Result.self, from: run(program, target: target, timeout: 120, isCancelled: isCancelled))
+        return SessionSearchResult(
+            matchingIDs: Set(result.ids.filter { UUID(uuidString: $0) != nil }.map { prefix(target) + $0 }),
+            warnings: result.unreadable > 0 ? ["\(target.name) \(result.unreadable) 个会话正文不可读"] : [])
+    }
+
+    private static func run(
+        _ program: String, target: RemoteTarget, timeout: TimeInterval = 20,
+        isCancelled: () -> Bool = { false }
+    ) throws -> Data {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(
             at: directory, withIntermediateDirectories: true,
@@ -52,10 +74,10 @@ struct RemoteCodexReader {
         process.standardOutput = stdout
         process.standardError = FileHandle.nullDevice
         try process.run()
-        let deadline = Date().addingTimeInterval(20)
+        let deadline = Date().addingTimeInterval(timeout)
         while process.isRunning {
             let size = (try? outputURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
-            if Date() >= deadline || size > 16 * 1024 * 1024 {
+            if isCancelled() || Date() >= deadline || size > 16 * 1024 * 1024 {
                 kill(process.processIdentifier, SIGKILL)
                 process.waitUntilExit()
                 throw HuantaiError.sourceUnavailable("远端读取超时或结果过大；请检查 SSH 连接。")
@@ -68,15 +90,15 @@ struct RemoteCodexReader {
         }
         let output = try Data(contentsOf: outputURL)
         guard output.count <= 16 * 1024 * 1024 else { throw HuantaiError.sourceUnavailable("远端结果过大。") }
-        return try decode(output, target: target, topics: topics)
+        return output
     }
 
     static func applyingBotmuxPreference(_ session: SessionRecord, target: RemoteTarget) -> SessionRecord {
-        guard !target.botmuxEnabled else { return session }
+        guard !target.botmuxEnabled || session.source == "Codex" else { return session }
         var value = session
         value.source = "Codex"
-        value.openURL = nil
-        value.openUnavailableReason = "远端会话请在 Codex 对应主机中打开，或通过 SSH 执行 codex resume \(value.nativeSessionID)。"
+        value.openURL = SourceOpening.codexURL(sessionID: value.nativeSessionID, remoteHost: target.host)
+        value.openUnavailableReason = nil
         return value
     }
 
@@ -110,9 +132,9 @@ struct RemoteCodexReader {
                 source: routes.isEmpty ? "Codex" : "Botmux", machine: target.name,
                 lastAIReplyAt: $0.reply.map { Date(timeIntervalSince1970: $0) },
                 lastAIReplyPreview: $0.preview.map { String($0.prefix(320)) },
-                openURL: routes.isEmpty ? nil : opening.url,
+                openURL: routes.isEmpty ? SourceOpening.codexURL(sessionID: $0.id, remoteHost: target.host) : opening.url,
                 openUnavailableReason: routes.isEmpty
-                    ? "远端会话请在 Codex 对应主机中打开，或通过 SSH 执行 codex resume \($0.id)。" : opening.reason,
+                    ? nil : opening.reason,
                 tokenUsage: $0.tokenUsage)
         }
     }

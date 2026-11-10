@@ -521,9 +521,20 @@ public final class SessionStore: @unchecked Sendable {
             return DeepSeekHarnessOpenTarget(url: url)?.urlString
         }
         if scheme == "codex", components.host == "threads",
-            components.query == nil, components.fragment == nil,
+            components.fragment == nil,
             SourceOpening.codexURL(sessionID: String(components.path.dropFirst())) != nil
         {
+            if let items = components.queryItems {
+                guard items.count == 1, items[0].name == "hostId",
+                    let hostID = items[0].value,
+                    hostID.hasPrefix("remote-ssh-discovered:"),
+                    let remoteHost = String(hostID.dropFirst("remote-ssh-discovered:".count))
+                        .removingPercentEncoding,
+                    SourceOpening.codexURL(
+                        sessionID: String(components.path.dropFirst()),
+                        remoteHost: remoteHost) != nil
+                else { return nil }
+            }
             return url.absoluteString
         }
         guard ["https", "lark", "x-feishu"].contains(scheme),
@@ -597,7 +608,8 @@ public final class SessionStore: @unchecked Sendable {
         }
     }
     private struct ScanCache: Codable, Equatable {
-        static let currentVersion = 3
+        // Recompute replies previously advanced by Botmux silent control markers.
+        static let currentVersion = 4
         var version: Int? = currentVersion
         var entries: [String: ScanEntry] = [:]
     }
@@ -671,6 +683,19 @@ public final class SessionStore: @unchecked Sendable {
                         !CharacterSet.controlCharacters.contains($0)
                     })
             ).prefix(1000))
+    }
+
+    func localSearchFiles(configuration: StoreConfiguration) throws -> [(String, URL?)] {
+        try withStoreLock {
+            let root = configuration.codexHome.map { URL(fileURLWithPath: $0) } ?? codexDirectory
+            let resolved = root.resolvingSymlinksInPath().standardizedFileURL
+            let prefixes = ["sessions", "archived_sessions"].map {
+                resolved.appendingPathComponent($0).path + "/"
+            }
+            return try readLocalMetadata(in: root).map {
+                ($0.id, safeRolloutURL(path: $0.rolloutPath, allowedPrefixes: prefixes))
+            }
+        }
     }
 
     private func safeRolloutURL(path: String, allowedPrefixes: [String]) -> URL? {
