@@ -8,6 +8,33 @@ final class RemoteCodexTests: XCTestCase {
     private let target = RemoteTarget(
         id: "example", name: "测试主机", host: "user@example", sessionRoot: "/srv/codex", botmuxEnabled: true)
 
+    func testRemoteDeepLinkIncludesValidatedHostAndRejectsExtraActions() throws {
+        let link = try XCTUnwrap(SourceOpening.codexURL(sessionID: nativeID, remoteHost: "dev"))
+        let components = try XCTUnwrap(URLComponents(string: link))
+        XCTAssertEqual(components.path, "/" + nativeID)
+        XCTAssertEqual(components.queryItems, [URLQueryItem(name: "hostId", value: "remote-ssh-discovered:dev")])
+        XCTAssertEqual(SessionStore.validatedOpenURL(link), link)
+        let userHost = try XCTUnwrap(SourceOpening.codexURL(sessionID: nativeID, remoteHost: "user@example"))
+        XCTAssertEqual(URLComponents(string: userHost)?.queryItems?.first?.value, "remote-ssh-discovered:user%40example")
+        XCTAssertEqual(SessionStore.validatedOpenURL(userHost), userHost)
+        XCTAssertNotNil(SessionStore.validatedOpenURL(SourceOpening.codexURL(sessionID: nativeID)!))
+        for suffix in ["&prompt=run", "&hostId=local", "#other"] {
+            XCTAssertNil(SessionStore.validatedOpenURL(link + suffix))
+        }
+        for query in ["hostId=local", "hostId=remote-ssh-discovered:", "hostId=remote-ssh-discovered:dev%26prompt%3Dbad", "prompt=run", ""] {
+            XCTAssertNil(SessionStore.validatedOpenURL("codex://threads/" + nativeID + "?" + query))
+        }
+    }
+
+    func testLegacyCachedRemoteCodexGetsHostRouteWithBotmuxEnabled() throws {
+        var record = try makeRecord()
+        record.openURL = nil
+        record.openUnavailableReason = "legacy warning"
+        let restored = RemoteCodexReader.applyingBotmuxPreference(record, target: target)
+        XCTAssertEqual(restored.openURL, SourceOpening.codexURL(sessionID: nativeID, remoteHost: target.host))
+        XCTAssertNil(restored.openUnavailableReason)
+    }
+
     func testTargetValidationAndIdentityIsolation() throws {
         try RemoteCodexReader.validate(target)
         for host in ["-oProxyCommand=bad", "host;echo bad", "user@host\n"] {
@@ -39,8 +66,8 @@ final class RemoteCodexTests: XCTestCase {
         try store.setRemoteTarget(target)
         var snapshot = try store.refreshRemotes()
         XCTAssertEqual(snapshot.sessions.map(\.id), [record.id])
-        XCTAssertNil(snapshot.sessions.first?.openURL)
-        XCTAssertTrue(snapshot.sessions.first?.openUnavailableReason?.contains("codex resume") == true)
+        XCTAssertEqual(snapshot.sessions.first?.openURL, SourceOpening.codexURL(sessionID: nativeID, remoteHost: target.host))
+        XCTAssertNil(snapshot.sessions.first?.openUnavailableReason)
         try store.setFavorite(id: record.id, value: true)
         try store.setCompleted(id: record.id, value: true)
         try store.setSessionDirectory(.codex, path: directory.appendingPathComponent("other-local").path)
@@ -48,7 +75,7 @@ final class RemoteCodexTests: XCTestCase {
         XCTAssertEqual(snapshot.sessions.count, 1)
         XCTAssertTrue(snapshot.sessions[0].isFavorite)
         XCTAssertTrue(snapshot.sessions[0].isCompleted)
-        XCTAssertNil(snapshot.sessions[0].openURL)
+        XCTAssertEqual(snapshot.sessions[0].openURL, SourceOpening.codexURL(sessionID: nativeID, remoteHost: target.host))
 
         let restarted = makeStore(directory)
         restarted.remoteScanner = RemoteCodexScanner { _ in throw HuantaiError.sourceUnavailable("offline") }
@@ -154,14 +181,14 @@ final class RemoteCodexTests: XCTestCase {
         disabled.botmuxEnabled = false
         disabled.botmuxRoot = ""
         try store.setRemoteTarget(disabled)
-        XCTAssertNil(try store.snapshot().sessions.first?.openURL)
+        XCTAssertEqual(try store.snapshot().sessions.first?.openURL, SourceOpening.codexURL(sessionID: nativeID, remoteHost: target.host))
         let refreshed = try store.refreshRemotes()
         XCTAssertEqual(refreshed.sessions.first?.source, "Codex")
-        XCTAssertNil(refreshed.sessions.first?.openURL)
+        XCTAssertEqual(refreshed.sessions.first?.openURL, SourceOpening.codexURL(sessionID: nativeID, remoteHost: target.host))
         XCTAssertEqual(refreshed.sessions.first?.isFavorite, true)
         let restarted = makeStore(directory)
         XCTAssertFalse(try restarted.configuration().remoteTargets[0].botmuxEnabled)
-        XCTAssertNil(try restarted.snapshot().sessions.first?.openURL)
+        XCTAssertEqual(try restarted.snapshot().sessions.first?.openURL, SourceOpening.codexURL(sessionID: nativeID, remoteHost: target.host))
         let mapping = SourceOpening.feishuChatURL(chatID: "oc_manual")!
         try restarted.setOpenMapping(id: record.id, url: mapping)
         XCTAssertEqual(try restarted.snapshot().sessions.first?.openURL, mapping)

@@ -66,6 +66,32 @@ final class CoreTests: XCTestCase {
     }
     private func date(_ text: String) -> Date { ISO8601DateFormatter().date(from: text)! }
 
+    func testDeepSearchReadsOldQuestionsAndArchivedAnswersWithoutPersistingBodies() throws {
+        let question = #"{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"UniqueQuestionOnly"}]}}"#
+        let answer = #"{"type":"response_item","payload":{"type":"message","role":"assistant","phase":"final_answer","content":[{"type":"output_text","text":"ArchivedAnswerOnly"}]}}"#
+        try addThread("question", events: [question])
+        let archived = codex.appendingPathComponent("archived_sessions/answer.jsonl")
+        try Data(answer.utf8).write(to: archived)
+        try addThread("archived", customPath: archived)
+        let store = store()
+        _ = try store.refresh()
+        XCTAssertEqual(store.search(query: "uniquequestiononly").matchingIDs, ["question"])
+        XCTAssertEqual(store.search(query: "ArchivedAnswerOnly").matchingIDs, ["archived"])
+        XCTAssertTrue(store.search(query: " ").matchingIDs.isEmpty)
+        XCTAssertTrue(store.search(query: "UniqueQuestionOnly", isCancelled: { true }).matchingIDs.isEmpty)
+        let saved = try String(contentsOf: index.appendingPathComponent("index.json"), encoding: .utf8)
+        XCTAssertFalse(saved.contains("UniqueQuestionOnly"))
+    }
+
+    func testDeepSearchRejectsEscapingRolloutAndReportsPartialResults() throws {
+        let outside = root.appendingPathComponent("outside.jsonl")
+        try Data(#"{"type":"event_msg","payload":{"type":"user_message","message":"outside-secret"}}"#.utf8).write(to: outside)
+        try addThread("outside", customPath: outside)
+        let result = store().search(query: "outside-secret")
+        XCTAssertTrue(result.matchingIDs.isEmpty)
+        XCTAssertFalse(result.warnings.isEmpty)
+    }
+
     func testVisibleAIReplyIncludesProgressAndIgnoresUserAnalysisAndMTime() throws {
         let path = try addThread(
             "one",

@@ -28,7 +28,8 @@ struct PopoverView: View {
     private var sessionPage: some View {
         VStack(spacing: 0) {
             header.fixedSize(horizontal: false, vertical: true)
-            if showingRecency {
+            SourceSyncWarningView(sources: model.snapshot.sources, openSettings: model.showSettings)
+            if showingRecency && !model.isSearchingSessions {
                 SessionRecencyView(model: model)
                     .background(.quaternary, in: RoundedRectangle(cornerRadius: 16))
                     .padding(.horizontal, 20)
@@ -38,7 +39,7 @@ struct PopoverView: View {
             if searching {
                 HStack {
                     Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                    TextField("搜索标题或目录", text: $model.sessionQuery)
+                    TextField("搜索标题、提问和回答", text: $model.sessionQuery)
                         .textFieldStyle(.plain)
                         .focused($searchFocused)
                         .accessibilityIdentifier("session-search")
@@ -56,6 +57,21 @@ struct PopoverView: View {
                 .background(.quaternary, in: RoundedRectangle(cornerRadius: 9))
                 .padding(.horizontal, 20)
                 .padding(.bottom, 12)
+            }
+            if model.isSearchingSessions {
+                HStack(spacing: 6) {
+                    if model.searchState.isSearching { ProgressView().controlSize(.small) }
+                    Text(model.searchState.isSearching ? "正在深度搜索 · 全部会话 · 所有日期" : "深度搜索 · 全部会话 · 所有日期")
+                    if !model.searchState.result.warnings.isEmpty {
+                        Label("部分正文不可读", systemImage: "exclamationmark.triangle")
+                            .help(model.searchState.result.warnings.joined(separator: "\n"))
+                    }
+                    Spacer()
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 8)
             }
             if showingResetCredits {
                 ResetCreditsView(usage: model.snapshot.usage)
@@ -121,7 +137,8 @@ struct PopoverView: View {
                     .foregroundStyle(model.showsCompleted ? Color.green : .secondary)
             }
             .buttonStyle(.plain)
-            .help("任务状态：\(model.showsCompleted ? "已完成" : "未完成")")
+            .disabled(model.isSearchingSessions)
+            .help(model.isSearchingSessions ? "搜索包含已完成和未完成会话" : "任务状态：\(model.showsCompleted ? "已完成" : "未完成")")
             .accessibilityLabel("筛选未完成或已完成任务")
             Button {
                 model.setFavoritesOnly(!model.favoritesOnly)
@@ -129,7 +146,8 @@ struct PopoverView: View {
                 Image(systemName: model.favoritesOnly ? "star.fill" : "star")
                     .foregroundStyle(model.favoritesOnly ? Color.orange : .secondary)
             }
-            .help(model.favoritesOnly ? "收藏筛选已开启，点击查看全部" : "只看收藏")
+            .disabled(model.isSearchingSessions)
+            .help(model.isSearchingSessions ? "搜索包含未收藏会话" : model.favoritesOnly ? "收藏筛选已开启，点击查看全部" : "只看收藏")
             .accessibilityLabel("收藏筛选")
             .accessibilityValue(model.favoritesOnly ? "开启" : "关闭")
             Button {
@@ -166,7 +184,8 @@ struct PopoverView: View {
                         }
                     }
             }
-            .help("消息时间范围：\(model.sessionRecency.title)")
+            .disabled(model.isSearchingSessions)
+            .help(model.isSearchingSessions ? "深度搜索覆盖所有日期" : "消息时间范围：\(model.sessionRecency.title)")
             .accessibilityLabel("消息时间范围")
             .accessibilityValue(model.sessionRecency.title)
             .accessibilityIdentifier("session-recency-toggle")
@@ -204,11 +223,11 @@ struct PopoverView: View {
                 .foregroundStyle(.tertiary)
             Text(
                 !model.sessionQuery.isEmpty
-                    ? "没有匹配的会话"
+                    ? (model.searchState.isSearching ? "正在搜索历史正文…" : "没有匹配的会话")
                     : model.showsCompleted ? "没有已完成的会话" : model.favoritesOnly ? "没有未完成的收藏" : "没有未完成的会话"
             )
             .font(.system(size: 14, weight: .medium))
-            if model.sessionRecency != .all {
+            if model.sessionRecency != .all && !model.isSearchingSessions {
                 Text("当前范围：\(model.sessionRecency.title)")
                     .font(.caption).foregroundStyle(.secondary)
                 Button("查看所有日期") { model.setSessionRecency(.all) }
@@ -232,7 +251,8 @@ struct PopoverView: View {
                 if model.refreshing {
                     ProgressView().controlSize(.mini)
                 } else {
-                    Circle().fill(model.snapshot.sessions.isEmpty ? Color.secondary : Color.green).frame(
+                    Circle().fill(!SourceSyncWarningView.affectedSources(in: model.snapshot.sources).isEmpty
+                        ? Color.orange : model.snapshot.sessions.isEmpty ? Color.secondary : Color.green).frame(
                         width: 5, height: 5)
                 }
                 Text(
@@ -243,7 +263,7 @@ struct PopoverView: View {
             }
             Spacer()
             if !model.snapshot.sources.isEmpty {
-                Text("最新更新 \(model.snapshot.updatedAt.formatted(.dateTime.hour().minute().second()))")
+                Text("最近扫描 \(model.snapshot.updatedAt.formatted(.dateTime.hour().minute().second()))")
                     .font(.system(size: 10)).monospacedDigit().foregroundStyle(.secondary)
                     .help("最近完成会话扫描的时间；每5秒刷新，按AI最后一条可见回复排序")
                     .accessibilityLabel("最近扫描更新时间")

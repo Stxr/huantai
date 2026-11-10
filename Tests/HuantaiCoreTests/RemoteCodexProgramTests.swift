@@ -52,6 +52,49 @@ final class RemoteCodexProgramTests: XCTestCase {
         XCTAssertTrue(linkedOutput.isEmpty)
     }
 
+    func testBotmuxAcknowledgedSendsReplaceSilentMarkersAndIgnoreActivity() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        let rootJSON = String(data: try encoder.encode(directory.path), encoding: .utf8)!
+        let setup = """
+            import pathlib, sqlite3, json
+            root_arg = \(rootJSON)
+            root = pathlib.Path(root_arg)
+            botmux_root_arg = str(root / 'botmux')
+            (root / 'sessions').mkdir()
+            log = root / 'sessions' / 'rollout.jsonl'
+            log.write_text(json.dumps(dict(timestamp='2026-10-21T08:00:00Z', type='response_item', payload=dict(type='message', role='assistant', phase='final_answer', content=[dict(type='output_text', text='BOTMUX_NOTHING_TO_SEND')]))))
+            db = sqlite3.connect(root / 'state_5.sqlite')
+            db.execute('CREATE TABLE threads (id TEXT, title TEXT, cwd TEXT, rollout_path TEXT)')
+            ids = ['019f9d97-401f-7942-b6ba-4cda42ca604' + str(i) for i in range(3)]
+            for sid in ids:
+                db.execute('INSERT INTO threads VALUES (?, ?, ?, ?)', (sid, 'fixture', '/workspace', str(log)))
+            db.commit()
+            db.close()
+            botmux = pathlib.Path(botmux_root_arg)
+            sends = botmux / 'turn-sends'
+            sends.mkdir(parents=True)
+            (botmux / 'sessions.json').write_text(json.dumps([dict(sessionId=sid, cliSessionId=sid, cliId='codex', scope='chat', chatId='oc_fixture', lastMessageAt='2026-10-21T10:00:00Z') for sid in ids]))
+            records = [dict(sentAtMs=1792572298696, messageId='om_success', previewText='Actual sent reply'), dict(sentAtMs=1792572398696, previewText='Unacknowledged'), dict(sentAtMs='1792572498696', messageId='om_bad'), dict(sentAtMs=1792572598696, messageId='')]
+            (sends / (ids[0] + '.jsonl')).write_text('\\n'.join(json.dumps(r) for r in records) + '\\nmalformed')
+            outside = root / 'outside.jsonl'
+            outside.write_text(json.dumps(records[0]))
+            (sends / (ids[1] + '.jsonl')).symlink_to(outside)
+            """
+        let (status, output) = try runProgram(setup: setup, in: directory)
+        XCTAssertEqual(status, 0)
+        let target = RemoteTarget(id: "fixture", name: "fixture", host: "example", sessionRoot: directory.path)
+        let rows = try RemoteCodexReader.decode(output, target: target)
+        XCTAssertEqual(rows.count, 3)
+        XCTAssertEqual(rows[0].lastAIReplyAt?.timeIntervalSince1970, 1_792_572_298.696)
+        XCTAssertEqual(rows[0].lastAIReplyPreview, "Actual sent reply")
+        XCTAssertNil(rows[1].lastAIReplyAt, "Linked send logs must not be read")
+        XCTAssertNil(rows[2].lastAIReplyAt, "Human activity and silent markers are not replies")
+    }
+
     private func runProgram(setup: String, in directory: URL) throws -> (Int32, Data) {
         let script = directory.appendingPathComponent("read.py")
         try Data((setup + "\n" + RemoteCodexProgram.script).utf8).write(to: script)
@@ -143,7 +186,7 @@ final class RemoteCodexProgramTests: XCTestCase {
         XCTAssertEqual(disabledStatus, 0)
         let disabledRows = try RemoteCodexReader.decode(disabledOutput, target: target)
         XCTAssertEqual(disabledRows.count, rows.count)
-        XCTAssertTrue(disabledRows.allSatisfy { $0.source == "Codex" && $0.openURL == nil })
+        XCTAssertTrue(disabledRows.allSatisfy { $0.source == "Codex" && $0.openURL == SourceOpening.codexURL(sessionID: $0.nativeSessionID, remoteHost: target.host) })
         XCTAssertEqual(disabledRows[0].tokenUsage, rows[0].tokenUsage)
     }
 }

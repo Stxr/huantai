@@ -82,6 +82,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
             NSMenuItem(title: "退出换台", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         applicationItem.submenu = applicationMenu
         mainMenu.addItem(applicationItem)
+        mainMenu.addItem(TextEditingMenu.makeItem())
         NSApplication.shared.mainMenu = mainMenu
     }
 
