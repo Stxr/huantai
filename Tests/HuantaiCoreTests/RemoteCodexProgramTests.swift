@@ -88,7 +88,8 @@ final class RemoteCodexProgramTests: XCTestCase {
             """
         let (status, output) = try runProgram(setup: setup, in: directory)
         XCTAssertEqual(status, 0)
-        let target = RemoteTarget(id: "fixture", name: "fixture", host: "example", sessionRoot: directory.path)
+        let target = RemoteTarget(
+            id: "fixture", name: "fixture", host: "example", sessionRoot: directory.path)
         let rows = try RemoteCodexReader.decode(output, target: target)
         XCTAssertEqual(rows.count, 3)
         XCTAssertEqual(rows[0].lastAIReplyAt?.timeIntervalSince1970, 1_792_572_298.696)
@@ -188,7 +189,12 @@ final class RemoteCodexProgramTests: XCTestCase {
         XCTAssertEqual(disabledStatus, 0)
         let disabledRows = try RemoteCodexReader.decode(disabledOutput, target: target)
         XCTAssertEqual(disabledRows.count, rows.count)
-        XCTAssertTrue(disabledRows.allSatisfy { $0.source == "Codex" && $0.openURL == SourceOpening.codexURL(sessionID: $0.nativeSessionID, remoteHost: target.host) })
+        XCTAssertTrue(
+            disabledRows.allSatisfy {
+                $0.source == "Codex"
+                    && $0.openURL
+                        == SourceOpening.codexURL(sessionID: $0.nativeSessionID, remoteHost: target.host)
+            })
         XCTAssertEqual(disabledRows[0].tokenUsage, rows[0].tokenUsage)
     }
 }

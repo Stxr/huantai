@@ -18,8 +18,12 @@ public enum SourceOpening {
             else { return nil }
             // Codex constructs discovered host IDs with encodeURIComponent(SSH alias).
             let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_.!~*'()"))
-            guard let encodedHost = remoteHost.addingPercentEncoding(withAllowedCharacters: allowed) else { return nil }
-            components.queryItems = [URLQueryItem(name: "hostId", value: "remote-ssh-discovered:" + encodedHost)]
+            guard let encodedHost = remoteHost.addingPercentEncoding(withAllowedCharacters: allowed) else {
+                return nil
+            }
+            components.queryItems = [
+                URLQueryItem(name: "hostId", value: "remote-ssh-discovered:" + encodedHost)
+            ]
         }
         return components.url?.absoluteString
     }

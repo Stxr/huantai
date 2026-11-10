@@ -101,10 +101,9 @@ public enum RolloutReplyScanner {
     }
 
     private static func previewText(_ text: String?) -> String? {
-        guard let text else { return nil }
+        guard let text, !VisibleReplyText.isSilent(text) else { return nil }
         let parts = text.split(whereSeparator: { $0.isWhitespace })
-        guard parts.contains(where: { $0 != "BOTMUX_NOTHING_TO_SEND" && $0 != "BOTMUX_NO_REPLY" })
-        else { return nil }
+        guard !parts.isEmpty else { return nil }
         let plain = parts.joined(separator: " ")
         return String(plain.prefix(320))
     }

@@ -88,6 +88,21 @@ final class DeepSeekHarnessTests: XCTestCase {
         XCTAssertFalse(publicIndex.contains("PRIVATE_"))
     }
 
+    func testSilentBotmuxRepliesDoNotAdvanceHarnessActivity() throws {
+        try artifact(events: [
+            reply("真实回复", time: 2000),
+            reply("BOTMUX_NOTHING_TO_SEND", time: 3000),
+            reply("BOTMUX_NOTHING_TO_SEND\n\nBOTMUX_NO_REPLY", time: 4000),
+            reply(
+                "BOTMUX_NOTHING_TO_SEND\n<oai-mem-citation><citation_entries>source</citation_entries><rollout_ids>id</rollout_ids></oai-mem-citation>",
+                time: 5000),
+        ])
+        let session = try XCTUnwrap(store.refresh().sessions.first)
+        XCTAssertEqual(session.lastAIReplyAt, Date(timeIntervalSince1970: 2))
+        XCTAssertEqual(session.lastAIReplyPreview, "真实回复")
+        XCTAssertEqual(try store.refresh().sessions.first, session)
+    }
+
     func testWarmScanSkipsBodiesAndNewGenerationReplacesOldWithoutDuplicate() throws {
         try artifact(version: 0, events: [reply("旧格式", time: 2000)])
         XCTAssertEqual(try store.refresh().sessions.count, 1)

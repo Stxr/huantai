@@ -174,9 +174,10 @@ final class DeepSeekHarnessScanner {
                 title = value
             }
             guard event.type == "assistant/message", event.data?.message?.role == "assistant",
-                let text = clean(
-                    event.data?.message?.content?.filter { $0.type == "text" }.compactMap(\.text).joined(
-                        separator: " "), limit: 320),
+                let body = event.data?.message?.content?.filter({ $0.type == "text" }).compactMap(\.text)
+                    .joined(separator: " "),
+                !VisibleReplyText.isSilent(body),
+                let text = clean(body, limit: 320),
                 let time = event.time, time.isFinite, time > 0
             else { continue }
             let date = Date(timeIntervalSince1970: time / 1000)
